@@ -10,6 +10,7 @@ Repo for family projects and apps
 | קובץ | תוכן |
 |---|---|
 | [`poc/index.html`](poc/index.html) | **אב טיפוס עובד.** קובץ בודד, בלי התקנה — פותחים בדפדפן |
+| [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | מסמך דרישות: מה המערכת עושה וקריטריוני קבלה |
 | [`docs/PLAN.md`](docs/PLAN.md) | ארכיטקטורה, מודל נתונים, חלוקה לשלבים ומלכודות |
 | [`docs/schema.sql`](docs/schema.sql) | סכימת Postgres מלאה עם טריגרים ו-RLS, מוכנה להרצה |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | השוואת אפשרויות דיפלוימנט והעלאה צעד-אחר-צעד |
