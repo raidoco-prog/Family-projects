@@ -429,6 +429,141 @@ create policy reminder_access on event_reminders
   );
 
 -- ------------------------------------------------------------
+-- 6ב. הצטרפות למשק בית
+--
+-- שתי הפעולות כאן הן security definer בכוונה, כי שתיהן קורות
+-- כשלמשתמש עדיין אין שיוך למשק בית — ולכן מדיניות ה-RLS הרגילה
+-- הייתה חוסמת אותן. זו נקודת הכניסה היחידה שעוקפת אותה, והיא
+-- מצומצמת בדיוק לשני התרחישים האלה.
+-- ------------------------------------------------------------
+
+create table household_invites (
+  id           uuid primary key default gen_random_uuid(),
+  household_id uuid not null references households(id) on delete cascade,
+  -- שיוך להזמנה לשורת בן משפחה קיימת (למשל: "ההזמנה הזו היא ליונתן").
+  -- null = צרף כבן משפחה חדש.
+  member_id    uuid references members(id) on delete cascade,
+  token        text not null unique default encode(gen_random_bytes(16), 'hex'),
+  created_by   uuid references members(id) on delete set null,
+  expires_at   timestamptz not null default now() + interval '14 days',
+  used_at      timestamptz,
+  used_by      uuid references auth.users(id) on delete set null,
+  created_at   timestamptz not null default now()
+);
+
+create index household_invites_open
+  on household_invites (household_id)
+  where used_at is null;
+
+-- יצירת משק בית חדש על ידי המשתמש הראשון, שהופך אוטומטית להורה.
+create or replace function create_household(
+  p_household_name text,
+  p_display_name   text,
+  p_color          text default '#BFD8EC',
+  p_birth_date     date default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_household uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  if exists (select 1 from members where user_id = auth.uid()) then
+    raise exception 'user already belongs to a household' using errcode = '23505';
+  end if;
+
+  insert into households (name)
+       values (p_household_name)
+    returning id into v_household;
+
+  insert into members (household_id, user_id, display_name, role, color, birth_date)
+       values (v_household, auth.uid(), p_display_name, 'parent', p_color, p_birth_date);
+
+  return v_household;
+end;
+$$;
+
+-- מימוש הזמנה: המשתמש המחובר נקשר לשורת בן משפחה קיימת, או נוצר כחדש.
+create or replace function claim_invite(
+  p_token        text,
+  p_display_name text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inv      household_invites%rowtype;
+  v_member uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  select * into inv
+    from household_invites
+   where token = p_token
+     and used_at is null
+     and expires_at > now()
+     for update;
+
+  if not found then
+    raise exception 'invite not found or expired' using errcode = '22023';
+  end if;
+
+  if inv.member_id is not null then
+    -- ההזמנה שמורה לשורה קיימת. התנאי user_id is null מונע גניבת מקום
+    -- שכבר נתפס, גם אם שני אנשים לחצו על אותו קישור.
+    update members
+       set user_id      = auth.uid(),
+           display_name = coalesce(p_display_name, display_name)
+     where id = inv.member_id
+       and user_id is null
+    returning id into v_member;
+
+    if v_member is null then
+      raise exception 'member slot already claimed' using errcode = '23505';
+    end if;
+  else
+    insert into members (household_id, user_id, display_name, role)
+         values (inv.household_id, auth.uid(), coalesce(p_display_name, 'בן משפחה'), 'child')
+      returning id into v_member;
+  end if;
+
+  update household_invites
+     set used_at = now(), used_by = auth.uid()
+   where id = inv.id;
+
+  return v_member;
+end;
+$$;
+
+alter table household_invites enable row level security;
+
+create policy invite_access on household_invites
+  for all using (household_id in (select current_household_ids()))
+  with check (household_id in (select current_household_ids()));
+
+-- המוזמן עדיין אינו חבר, ולכן אינו רואה את השורה ישירות —
+-- claim_invite היא הדרך היחידה שלו לגעת בה.
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    grant execute on function create_household(text, text, text, date) to authenticated;
+    grant execute on function claim_invite(text, text) to authenticated;
+  end if;
+end
+$$;
+
+-- ------------------------------------------------------------
 -- 7. סנכרון חי (Supabase Realtime)
 --    ה-publication קיים רק ב-Supabase. התנאי מאפשר להריץ את אותו
 --    קובץ גם מול Postgres רגיל באחסון עצמי, בלי שגיאה.
