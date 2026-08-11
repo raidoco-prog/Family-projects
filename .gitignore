@@ -1,0 +1,7 @@
+# Generated screenshots. Binary files do not diff, so committing them would
+# add a full copy to git history on every refresh. Regenerate instead:
+#   node scripts/screenshots.mjs
+Screens/
+
+node_modules/
+.DS_Store
