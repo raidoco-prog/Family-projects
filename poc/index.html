@@ -2,19 +2,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
   :root {
-    --ground:      #E9EDEB;
-    --surface:     #FFFFFF;
-    --sunk:        #F1F4F2;
-    --ink:         #1B231F;
-    --ink-soft:    #55645D;
-    --ink-faint:   #8A968F;
-    --rule:        #E0E6E2;
-    --accent:      #1F5F55;
-    --accent-soft: #E4EFEA;
-    --signal:      #A2620F;
-    --signal-soft: #FBF0DD;
-    --danger:      #A33A2E;
-    --shadow:      0 1px 2px rgba(27,35,31,.06), 0 8px 24px rgba(27,35,31,.06);
+    --ground:        #F2F5FA;
+    --surface:       #FFFFFF;
+    --sunk:          #EDF1F8;
+    --ink:           #2B3242;
+    --ink-soft:      #5B6579;
+    --ink-faint:     #696F7B;
+    --rule:          #E4E9F2;
+
+    --accent:        #3A6693;   /* readable over white AND over --accent-pastel */
+    --accent-pastel: #D3E4F3;   /* fills */
+    --accent-soft:   #E9F1F9;
+
+    --signal:        #8C5A27;
+    --signal-pastel: #FAE3C4;
+    --signal-soft:   #FDF3E4;
+
+    --danger:        #A85449;
+    --danger-soft:   #FAE6E3;
+
+    --on-pastel:     #2B3242;   /* over the FIXED member pastels only — never over themed fills */
+    --shadow:        0 1px 2px rgba(43,50,66,.05), 0 8px 22px rgba(43,50,66,.05);
 
     --sans: system-ui, -apple-system, "Segoe UI", "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
     --serif: "Frank Ruhl Libre", "David Libre", "Narkisim", Georgia, serif;
@@ -22,36 +30,50 @@
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --ground:      #0C100E;
-      --surface:     #181E1B;
-      --sunk:        #212925;
-      --ink:         #E7EDEA;
-      --ink-soft:    #A2B0AA;
-      --ink-faint:   #78857F;
-      --rule:        #2A322E;
-      --accent:      #63C0A9;
-      --accent-soft: #1A2E29;
-      --signal:      #D9A052;
-      --signal-soft: #2B2418;
-      --danger:      #E08573;
-      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+      --ground:        #161A22;
+      --surface:       #1E232D;
+      --sunk:          #262C38;
+      --ink:           #E8ECF3;
+      --ink-soft:      #AEB7C6;
+      --ink-faint:     #8D96A6;
+      --rule:          #303747;
+
+      --accent:        #9FC5E8;
+      --accent-pastel: #2E4157;
+      --accent-soft:   #232E3C;
+
+      --signal:        #E8C08A;
+      --signal-pastel: #3E3425;
+      --signal-soft:   #2C2620;
+
+      --danger:        #E8A79C;
+      --danger-soft:   #3A2724;
+
+      --shadow:        0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
     }
   }
 
   :root[data-theme="dark"] {
-    --ground:      #0C100E;
-    --surface:     #181E1B;
-    --sunk:        #212925;
-    --ink:         #E7EDEA;
-    --ink-soft:    #A2B0AA;
-    --ink-faint:   #78857F;
-    --rule:        #2A322E;
-    --accent:      #63C0A9;
-    --accent-soft: #1A2E29;
-    --signal:      #D9A052;
-    --signal-soft: #2B2418;
-    --danger:      #E08573;
-    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    --ground:        #161A22;
+    --surface:       #1E232D;
+    --sunk:          #262C38;
+    --ink:           #E8ECF3;
+    --ink-soft:      #AEB7C6;
+    --ink-faint:     #8D96A6;
+    --rule:          #303747;
+
+    --accent:        #9FC5E8;
+    --accent-pastel: #2E4157;
+    --accent-soft:   #232E3C;
+
+    --signal:        #E8C08A;
+    --signal-pastel: #3E3425;
+    --signal-soft:   #2C2620;
+
+    --danger:        #E8A79C;
+    --danger-soft:   #3A2724;
+
+    --shadow:        0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
   }
 
   * { box-sizing: border-box; }
@@ -78,24 +100,17 @@
   /* ============ shell ============ */
 
   .app {
-    max-width: 460px;
-    margin: 0 auto;
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
+    max-width: 460px; margin: 0 auto; height: 100dvh;
+    display: flex; flex-direction: column;
     background: var(--ground);
     border-inline: 1px solid var(--rule);
   }
 
   .topbar {
-    flex: none;
-    background: var(--surface);
+    flex: none; background: var(--surface);
     border-bottom: 1px solid var(--rule);
     padding: .8rem 1rem .7rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
+    display: flex; align-items: center; justify-content: space-between; gap: .75rem;
   }
 
   .brand { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
@@ -105,48 +120,36 @@
   .who { display: flex; gap: .3rem; flex: none; }
 
   .avatar {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    border: none;
+    width: 30px; height: 30px; border-radius: 50%; border: none;
     display: grid; place-items: center;
     font-size: .78rem; font-weight: 700;
-    color: #fff;
-    opacity: .4;
+    color: var(--on-pastel);
+    opacity: .45;
     transition: opacity .15s, box-shadow .15s;
     padding: 0;
   }
-  .avatar.on { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px currentColor; }
-  .avatar.sm { width: 22px; height: 22px; font-size: .66rem; opacity: 1; }
-  .avatar.xs { width: 18px; height: 18px; font-size: .58rem; opacity: 1; }
+  .avatar.on { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+  .avatar.sm { width: 23px; height: 23px; font-size: .68rem; opacity: 1; }
+  .avatar.xs { width: 19px; height: 19px; font-size: .6rem; opacity: 1; }
 
   .screen {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+    flex: 1; overflow-y: auto; overflow-x: hidden;
     padding: 1rem 1rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.1rem;
+    display: flex; flex-direction: column; gap: 1.1rem;
   }
 
   /* ============ bottom nav ============ */
 
   .nav {
-    flex: none;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    background: var(--surface);
-    border-top: 1px solid var(--rule);
+    flex: none; display: grid; grid-template-columns: repeat(5, 1fr);
+    background: var(--surface); border-top: 1px solid var(--rule);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
   .nav button {
-    background: none; border: none;
-    padding: .5rem .2rem .6rem;
+    background: none; border: none; padding: .5rem .2rem .6rem;
     display: flex; flex-direction: column; align-items: center; gap: .18rem;
-    color: var(--ink-faint);
-    font-size: .66rem; font-weight: 600;
-    position: relative;
+    color: var(--ink-faint); font-size: .66rem; font-weight: 600; position: relative;
   }
   .nav button.on { color: var(--accent); }
   .nav button.on::before {
@@ -157,9 +160,10 @@
 
   .nav .count {
     position: absolute; top: .3rem; inset-inline-start: calc(50% + .35rem);
-    background: var(--signal); color: var(--surface);
+    background: var(--signal-pastel); color: var(--signal);
+    border: 1px solid color-mix(in srgb, var(--signal) 25%, transparent);
     font-size: .58rem; font-weight: 700;
-    min-width: 15px; height: 15px; border-radius: 8px;
+    min-width: 16px; height: 16px; border-radius: 8px;
     display: grid; place-items: center; padding: 0 3px;
     font-variant-numeric: tabular-nums;
   }
@@ -167,10 +171,7 @@
   /* ============ common ============ */
 
   .sec { display: flex; flex-direction: column; gap: .55rem; }
-
-  .sec-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: .5rem;
-  }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
   .sec-head h2 {
     margin: 0; font-size: .74rem; font-weight: 700;
     letter-spacing: .11em; text-transform: uppercase; color: var(--ink-faint);
@@ -178,10 +179,8 @@
   .sec-head .aside { font-size: .74rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 
   .card {
-    background: var(--surface);
-    border: 1px solid var(--rule);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 14px; box-shadow: var(--shadow);
   }
 
   .rows { display: flex; flex-direction: column; }
@@ -199,17 +198,14 @@
   .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .pill {
-    font-size: .66rem; font-weight: 700; padding: .12rem .45rem;
+    font-size: .66rem; font-weight: 700; padding: .14rem .5rem;
     border-radius: 100px; white-space: nowrap;
     background: var(--sunk); color: var(--ink-soft);
   }
-  .pill.warn { background: var(--signal-soft); color: var(--signal); }
-  .pill.med  { background: var(--accent-soft); color: var(--accent); }
+  .pill.warn { background: var(--signal-pastel); color: var(--signal); }
+  .pill.med  { background: var(--accent-pastel); color: var(--accent); }
 
-  .empty {
-    text-align: center; color: var(--ink-faint);
-    font-size: .85rem; padding: 1.6rem 1rem;
-  }
+  .empty { text-align: center; color: var(--ink-faint); font-size: .85rem; padding: 1.6rem 1rem; }
 
   /* ============ home ============ */
 
@@ -221,24 +217,23 @@
 
   .tile {
     background: var(--surface); border: 1px solid var(--rule);
-    border-radius: 12px; padding: .7rem .8rem;
+    border-radius: 14px; padding: .7rem .8rem;
     display: flex; flex-direction: column; gap: .05rem;
     text-align: start; box-shadow: var(--shadow);
   }
   .tile b { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .tile span { font-size: .74rem; color: var(--ink-soft); }
   .tile.alert b { color: var(--signal); }
-  .tile.alert { border-color: color-mix(in srgb, var(--signal) 35%, var(--rule)); }
+  .tile.alert { border-color: color-mix(in srgb, var(--signal) 32%, var(--rule)); background: var(--signal-soft); }
 
   /* ============ calendar ============ */
 
   .cal { padding: .8rem .7rem .7rem; }
-
   .cal-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 .2rem .6rem; }
   .cal-nav b { font-size: .95rem; font-weight: 700; }
   .cal-nav button {
     background: none; border: none; color: var(--ink-soft);
-    width: 28px; height: 28px; border-radius: 8px; font-size: 1rem;
+    width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
   }
   .cal-nav button:hover { background: var(--sunk); }
   .cal-nav svg {
@@ -247,54 +242,85 @@
   }
 
   .grid7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-
-  .dow {
-    text-align: center; font-size: .66rem; font-weight: 700;
-    color: var(--ink-faint); padding-bottom: .3rem;
-  }
+  .dow { text-align: center; font-size: .66rem; font-weight: 700; color: var(--ink-faint); padding-bottom: .3rem; }
 
   .day {
-    aspect-ratio: 1; border: none; background: none;
-    border-radius: 9px; padding: .15rem 0 0;
+    aspect-ratio: 1; border: none; background: none; border-radius: 10px;
+    padding: .15rem 0 0;
     display: flex; flex-direction: column; align-items: center; gap: 2px;
-    font-size: .8rem; font-variant-numeric: tabular-nums;
-    color: var(--ink);
+    font-size: .8rem; font-variant-numeric: tabular-nums; color: var(--ink);
   }
-  .day.out { color: var(--ink-faint); opacity: .45; }
+  .day.out { color: var(--ink-faint); opacity: .6; }
   .day.today { font-weight: 800; color: var(--accent); }
-  .day.today::after { content: ""; }
-  .day.sel { background: var(--accent); color: var(--surface); font-weight: 700; }
-  .day.sel .dot { box-shadow: 0 0 0 1px rgba(255,255,255,.7); }
+  .day.sel { background: var(--accent-pastel); color: var(--ink); font-weight: 700; }
   .dots { display: flex; gap: 2px; height: 5px; align-items: center; }
   .dot { width: 5px; height: 5px; border-radius: 50%; }
 
-  /* ============ appointment card ============ */
+  /* ============ event / appointment card ============ */
 
-  .appt { padding: .8rem .85rem; display: flex; flex-direction: column; gap: .45rem; }
-  .appt-top { display: flex; align-items: center; gap: .5rem; }
-  .appt dl {
-    margin: 0; display: grid; grid-template-columns: auto 1fr;
-    gap: .18rem .6rem; font-size: .8rem;
-  }
+  .appt { padding: .85rem .9rem; display: flex; flex-direction: column; gap: .5rem; }
+  .appt-top { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .appt dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .18rem .6rem; font-size: .8rem; }
   .appt dt { color: var(--ink-faint); }
   .appt dd { margin: 0; color: var(--ink-soft); }
+
   .prep {
     background: var(--signal-soft); color: var(--signal);
-    border-radius: 8px; padding: .4rem .55rem; font-size: .78rem; font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--signal) 20%, transparent);
+    border-radius: 9px; padding: .42rem .6rem; font-size: .78rem; font-weight: 600;
   }
+
+  /* ============ reminders ============ */
+
+  .rem {
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+    border-radius: 10px; padding: .5rem .6rem;
+    display: flex; flex-direction: column; gap: .38rem;
+  }
+  .rem-head {
+    display: flex; align-items: center; gap: .45rem;
+    font-size: .73rem; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .rem-head svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .rem-line {
+    display: flex; align-items: baseline; gap: .4rem;
+    font-size: .79rem; color: var(--ink-soft);
+  }
+  .rem-line b { color: var(--ink); font-weight: 600; }
+  .rem-line .when { margin-inline-start: auto; font-size: .73rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .rem-to { display: flex; align-items: center; gap: .3rem; font-size: .73rem; color: var(--ink-soft); flex-wrap: wrap; }
+  .rem.off { background: var(--sunk); border-color: var(--rule); opacity: .75; }
+  .rem.off .rem-head { color: var(--ink-faint); }
+
+  .toggle {
+    margin-inline-start: auto; flex: none;
+    width: 38px; height: 21px; border-radius: 100px; border: none;
+    background: var(--rule); padding: 2px; position: relative;
+    transition: background .18s;
+  }
+  .toggle::after {
+    content: ""; position: absolute; top: 2px; inset-inline-start: 2px;
+    width: 17px; height: 17px; border-radius: 50%;
+    background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.22);
+    transition: transform .18s;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle.on::after { transform: translateX(-17px); }
 
   /* ============ tasks / shopping ============ */
 
   .chips { display: flex; gap: .35rem; }
   .chip {
     background: var(--surface); border: 1px solid var(--rule);
-    border-radius: 100px; padding: .28rem .75rem;
+    border-radius: 100px; padding: .3rem .8rem;
     font-size: .78rem; font-weight: 600; color: var(--ink-soft);
   }
-  .chip.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  .chip.on { background: var(--accent-pastel); border-color: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
 
   .check {
-    width: 21px; height: 21px; border-radius: 6px; flex: none;
+    width: 21px; height: 21px; border-radius: 7px; flex: none;
     border: 1.7px solid var(--ink-faint); background: none;
     display: grid; place-items: center; padding: 0;
   }
@@ -316,20 +342,19 @@
   .adder input {
     flex: 1; min-width: 0;
     background: var(--surface); border: 1px solid var(--rule);
-    border-radius: 10px; padding: .6rem .75rem;
+    border-radius: 11px; padding: .6rem .75rem;
     font: inherit; font-size: .9rem; color: var(--ink);
   }
   .adder input::placeholder { color: var(--ink-faint); }
   .adder button {
-    background: var(--accent); color: var(--surface); border: none;
-    border-radius: 10px; padding: 0 1.05rem; font-weight: 700; font-size: .88rem;
+    background: var(--accent-pastel); color: var(--accent); border: none;
+    border-radius: 11px; padding: 0 1.05rem; font-weight: 700; font-size: .88rem;
   }
 
   .cat-head {
     font-size: .68rem; font-weight: 700; letter-spacing: .09em;
     text-transform: uppercase; color: var(--ink-faint);
-    padding: .55rem .85rem .2rem;
-    background: var(--surface);
+    padding: .55rem .85rem .2rem; background: var(--surface);
   }
 
   .del {
@@ -341,7 +366,7 @@
   /* ============ inventory ============ */
 
   .inv { display: flex; align-items: center; gap: .7rem; padding: .65rem .85rem; }
-  .inv.low { background: linear-gradient(to left, transparent, var(--signal-soft)); }
+  .inv.low { background: var(--signal-soft); }
   .inv.low .bar-fill { background: var(--signal); }
 
   .bar { height: 3px; background: var(--sunk); border-radius: 2px; margin-top: .3rem; overflow: hidden; }
@@ -349,17 +374,14 @@
 
   .stepper { display: flex; align-items: center; gap: .1rem; flex: none; }
   .stepper button {
-    width: 27px; height: 27px; border-radius: 7px;
+    width: 28px; height: 28px; border-radius: 8px;
     border: 1px solid var(--rule); background: var(--surface);
     color: var(--ink-soft); font-size: 1rem; line-height: 1; padding: 0;
     display: grid; place-items: center;
   }
   .stepper button:hover { border-color: var(--accent); color: var(--accent); }
   .stepper button:disabled { opacity: .35; cursor: default; }
-  .stepper b {
-    min-width: 2.6rem; text-align: center; font-size: .84rem;
-    font-variant-numeric: tabular-nums; font-weight: 700;
-  }
+  .stepper b { min-width: 2.7rem; text-align: center; font-size: .84rem; font-variant-numeric: tabular-nums; font-weight: 700; }
 
   /* ============ toast ============ */
 
@@ -369,26 +391,21 @@
     align-items: center; gap: .4rem; pointer-events: none; z-index: 40;
   }
   .toast {
-    background: var(--ink); color: var(--ground);
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--rule);
     padding: .55rem .95rem; border-radius: 100px;
     font-size: .82rem; font-weight: 600;
-    box-shadow: 0 6px 20px rgba(0,0,0,.22);
-    animation: rise .25s ease-out;
-    max-width: 88%;
+    box-shadow: 0 6px 22px rgba(43,50,66,.16);
+    animation: rise .25s ease-out; max-width: 88%;
   }
-  .toast.warn { background: var(--signal); color: var(--surface); }
+  .toast.warn { background: var(--signal-pastel); color: var(--signal); border-color: color-mix(in srgb, var(--signal) 25%, transparent); }
+  .toast.info { background: var(--accent-pastel); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 25%, transparent); }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 
-  /* ============ footer note ============ */
-
-  .note {
-    font-size: .74rem; color: var(--ink-faint);
-    text-align: center; line-height: 1.6; padding: .2rem 0 0;
-  }
+  .note { font-size: .74rem; color: var(--ink-faint); text-align: center; line-height: 1.6; padding: .2rem 0 0; }
   .note button {
     background: none; border: none; color: var(--ink-faint);
-    text-decoration: underline; text-underline-offset: 2px;
-    font-size: .74rem; padding: 0;
+    text-decoration: underline; text-underline-offset: 2px; font-size: .74rem; padding: 0;
   }
 </style>
 
@@ -396,7 +413,7 @@
   <header class="topbar">
     <div class="brand">
       <b>הבית שלנו</b>
-      <span id="topSub">אב טיפוס · נתוני הדגמה</span>
+      <span id="topSub">אב טיפוס</span>
     </div>
     <div class="who" id="who"></div>
   </header>
@@ -412,12 +429,11 @@
 (function () {
   "use strict";
 
-  var KEY = "family-poc-v1";
+  var KEY = "family-poc-v2";
 
   /* ---------- utilities ---------- */
 
   function uid() { return Math.random().toString(36).slice(2, 10); }
-
   function startOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
   function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
   function sameDay(a, b) {
@@ -436,17 +452,17 @@
   }
 
   function relDay(d) {
-    var t = startOfDay(new Date());
-    var x = startOfDay(d);
-    var diff = Math.round((x - t) / 86400000);
+    var diff = Math.round((startOfDay(d) - startOfDay(new Date())) / 86400000);
     if (diff === 0) return "היום";
     if (diff === 1) return "מחר";
     if (diff === 2) return "מחרתיים";
     if (diff === -1) return "אתמול";
     if (diff < 0) return "לפני " + (-diff) + " ימים";
-    if (diff < 7) return "יום " + DOW_LONG[x.getDay()];
-    return x.getDate() + " ב" + MONTHS[x.getMonth()];
+    if (diff < 7) return "יום " + DOW_LONG[startOfDay(d).getDay()];
+    return d.getDate() + " ב" + MONTHS[d.getMonth()];
   }
+
+  function shortDate(d) { return d.getDate() + "." + (d.getMonth() + 1); }
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -460,8 +476,15 @@
     return t.content.firstElementChild;
   }
 
-  /* ---------- seed data ---------- */
-  /* Dates are computed relative to today so the prototype never looks stale. */
+  function ageOn(birthISO, ref) {
+    var b = new Date(birthISO + "T00:00:00");
+    var a = ref.getFullYear() - b.getFullYear();
+    var m = ref.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && ref.getDate() < b.getDate())) a--;
+    return a;
+  }
+
+  /* ================= seed data ================= */
 
   function seed() {
     var today = startOfDay(new Date());
@@ -471,84 +494,107 @@
       return d.getTime();
     }
 
+    /* Pastel per-member colours. Text over them is always --on-pastel,
+       which keeps contrast valid in both themes. */
     var members = [
-      { id: "m1", name: "רון",   role: "parent", color: "#1F5F55" },
-      { id: "m2", name: "מיכל",  role: "parent", color: "#6B4E9B" },
-      { id: "m3", name: "יעל",   role: "child",  color: "#B0721A" },
-      { id: "m4", name: "איתי",  role: "child",  color: "#2C6E9B" }
+      { id: "masha",   name: "מאשה",  role: "parent", color: "#E2C9E8", birth: "1984-03-22" },
+      { id: "stas",    name: "סטס",   role: "parent", color: "#BFD8EC", birth: "1975-06-09" },
+      { id: "yonatan", name: "יונתן", role: "child",  color: "#C4E0BE", birth: "2011-04-18" },
+      { id: "shani",   name: "שני",   role: "child",  color: "#F7D6B9", birth: "2016-02-11" }
     ];
 
     var events = [
-      { id: "e1", kind: "appointment", title: "רופא שיניים — יעל", startsAt: at(0, 16, 30),
-        location: "מרפאת שיניים, רחוב הרצל 12", participants: ["m3", "m2"],
-        appt: { patientId: "m3", doctor: "ד״ר לוי", specialty: "רופא שיניים",
+      { id: "e1", kind: "appointment", title: "רופא שיניים — שני", startsAt: at(0, 16, 30),
+        location: "מרפאת שיניים, רחוב הרצל 12", participants: ["shani"], remind: true,
+        appt: { patientId: "shani", doctor: "ד״ר לוי", specialty: "רופא שיניים",
                 clinic: "מכבידנט", hmo: "מכבי", prep: "לצחצח שיניים לפני, להביא טופס 17" } },
-      { id: "e2", kind: "general", title: "אימון כדורסל — איתי", startsAt: at(1, 17, 0),
-        location: "אולם הספורט", participants: ["m4"], rrule: "FREQ=WEEKLY;BYDAY=TU" },
-      { id: "e3", kind: "appointment", title: "בדיקה שנתית — רון", startsAt: at(3, 9, 15),
-        location: "מרפאת קופת חולים", participants: ["m1"],
-        appt: { patientId: "m1", doctor: "ד״ר כהן", specialty: "רופא משפחה",
+
+      { id: "e2", kind: "general", title: "אימון כדורסל — יונתן", startsAt: at(1, 17, 0),
+        location: "אולם הספורט", participants: ["yonatan"], rrule: "FREQ=WEEKLY;BYDAY=TU", remind: true },
+
+      { id: "e3", kind: "appointment", title: "בדיקה שנתית — סטס", startsAt: at(3, 9, 15),
+        location: "מרפאת קופת חולים", participants: ["stas"], remind: true,
+        appt: { patientId: "stas", doctor: "ד״ר כהן", specialty: "רופא משפחה",
                 clinic: "כללית מרכז", hmo: "כללית", prep: "צום 12 שעות לפני בדיקות דם" } },
-      { id: "e4", kind: "school", title: "אסיפת הורים", startsAt: at(4, 19, 0),
-        location: "בית הספר", participants: ["m1", "m2"] },
-      { id: "e5", kind: "general", title: "ארוחת ערב אצל סבתא", startsAt: at(6, 19, 30),
-        location: "", participants: ["m1", "m2", "m3", "m4"] },
-      { id: "e6", kind: "appointment", title: "עיניים — מיכל", startsAt: at(9, 11, 0),
-        location: "אופטיקה מרכזית", participants: ["m2"],
-        appt: { patientId: "m2", doctor: "ד״ר אבידן", specialty: "רופא עיניים",
-                clinic: "מאוחדת", hmo: "מאוחדת", prep: "להביא משקפיים נוכחיים" } }
+
+      { id: "e4", kind: "school", title: "אסיפת הורים — שני", startsAt: at(4, 19, 0),
+        location: "בית הספר", participants: ["shani"], remind: true },
+
+      { id: "e5", kind: "general", title: "ארוחת ערב משפחתית", startsAt: at(6, 19, 30),
+        location: "", participants: ["masha", "stas", "yonatan", "shani"], remind: true },
+
+      { id: "e6", kind: "appointment", title: "עיניים — מאשה", startsAt: at(9, 11, 0),
+        location: "אופטיקה מרכזית", participants: ["masha"], remind: true,
+        appt: { patientId: "masha", doctor: "ד״ר אבידן", specialty: "רופא עיניים",
+                clinic: "מאוחדת", hmo: "מאוחדת", prep: "להביא משקפיים נוכחיים" } },
+
+      /* Holiday. Real Hebrew-calendar dates should come from @hebcal/core —
+         this one is seeded so the day-of-event 10:30 reminder is visible. */
+      { id: "e7", kind: "holiday", title: "ראש השנה", startsAt: at(32, 0, 0),
+        allDay: true, location: "", participants: [], remind: true }
     ];
 
+    /* Birthdays are derived from each member's birth date, so they never
+       drift out of sync with the family list. */
+    members.forEach(function (m) {
+      var b = new Date(m.birth + "T00:00:00");
+      var next = new Date(today.getFullYear(), b.getMonth(), b.getDate());
+      if (next < today) next = new Date(today.getFullYear() + 1, b.getMonth(), b.getDate());
+      events.push({
+        id: "bd-" + m.id,
+        kind: "birthday",
+        title: "יום הולדת " + m.name,
+        startsAt: next.getTime(),
+        allDay: true,
+        location: "",
+        participants: [m.id],
+        remind: true,
+        birthdayFor: m.id
+      });
+    });
+
     var tasks = [
-      { id: "t1", title: "להוציא את הזבל",          assignee: "m4", dueAt: at(0, 20, 0),  priority: 3, done: false },
-      { id: "t2", title: "לקנות מתנה ליום הולדת",   assignee: "m2", dueAt: at(2, 12, 0),  priority: 2, done: false },
-      { id: "t3", title: "לתאם טיפול לרכב",          assignee: "m1", dueAt: at(-1, 10, 0), priority: 1, done: false },
-      { id: "t4", title: "לסדר את החדר",             assignee: "m3", dueAt: at(0, 18, 0),  priority: 3, done: false },
-      { id: "t5", title: "לשלם ארנונה",              assignee: "m1", dueAt: at(5, 12, 0),  priority: 2, done: false },
-      { id: "t6", title: "להחזיר ספרים לספרייה",     assignee: "m3", dueAt: at(-2, 16, 0), priority: 2, done: true }
+      { id: "t1", title: "להוציא את הזבל",            assignee: "yonatan", dueAt: at(0, 20, 0),  priority: 3, done: false },
+      { id: "t2", title: "לקנות מתנה ליום הולדת",     assignee: "masha",   dueAt: at(2, 12, 0),  priority: 2, done: false },
+      { id: "t3", title: "לתאם טיפול לרכב",            assignee: "stas",    dueAt: at(-1, 10, 0), priority: 1, done: false },
+      { id: "t4", title: "לסדר את החדר",               assignee: "shani",   dueAt: at(0, 18, 0),  priority: 3, done: false },
+      { id: "t5", title: "לשלם ארנונה",                assignee: "masha",   dueAt: at(5, 12, 0),  priority: 2, done: false },
+      { id: "t6", title: "להחזיר ספרים לספרייה",       assignee: "yonatan", dueAt: at(-2, 16, 0), priority: 2, done: true }
     ];
 
     var inventory = [
-      { id: "i1", name: "חלב",           category: "מוצרי חלב", location: "מקרר",  unit: "ליטר", quantity: 2, min: 2, auto: true },
-      { id: "i2", name: "ביצים",          category: "מוצרי חלב", location: "מקרר",  unit: "יח׳",  quantity: 12, min: 6, auto: true },
-      { id: "i3", name: "לחם",            category: "מאפים",     location: "מזווה", unit: "כיכר", quantity: 1, min: 1, auto: true },
-      { id: "i4", name: "קפה",            category: "יבשים",     location: "מזווה", unit: "חבילה", quantity: 0, min: 1, auto: true },
-      { id: "i5", name: "נייר טואלט",     category: "ניקיון",    location: "אמבטיה", unit: "גליל", quantity: 8, min: 4, auto: true },
-      { id: "i6", name: "אבקת כביסה",     category: "ניקיון",    location: "מכבסה", unit: "חבילה", quantity: 1, min: 1, auto: true },
-      { id: "i7", name: "שמן זית",        category: "יבשים",     location: "מזווה", unit: "בקבוק", quantity: 2, min: 1, auto: true },
-      { id: "i8", name: "אקמול לילדים",   category: "תרופות",    location: "ארונית", unit: "בקבוק", quantity: 1, min: 1, auto: true }
+      { id: "i1", name: "חלב",         category: "מוצרי חלב", location: "מקרר",   unit: "ליטר",  quantity: 2,  min: 2, auto: true },
+      { id: "i2", name: "ביצים",        category: "מוצרי חלב", location: "מקרר",   unit: "יח׳",   quantity: 12, min: 6, auto: true },
+      { id: "i3", name: "לחם",          category: "מאפים",     location: "מזווה",  unit: "כיכר",  quantity: 1,  min: 1, auto: true },
+      { id: "i4", name: "קפה",          category: "יבשים",     location: "מזווה",  unit: "חבילה", quantity: 0,  min: 1, auto: true },
+      { id: "i5", name: "נייר טואלט",   category: "ניקיון",    location: "אמבטיה", unit: "גליל",  quantity: 8,  min: 4, auto: true },
+      { id: "i6", name: "אבקת כביסה",   category: "ניקיון",    location: "מכבסה",  unit: "חבילה", quantity: 1,  min: 1, auto: true },
+      { id: "i7", name: "שמן זית",      category: "יבשים",     location: "מזווה",  unit: "בקבוק", quantity: 2,  min: 1, auto: true },
+      { id: "i8", name: "אקמול לילדים", category: "תרופות",    location: "ארונית", unit: "בקבוק", quantity: 1,  min: 1, auto: true }
     ];
 
     var shopping = [
       { id: "s1", name: "עגבניות", quantity: 1, unit: "ק״ג", category: "ירקות ופירות",
-        checked: false, source: "manual", invId: null, addedBy: "m2", createdAt: Date.now() },
+        checked: false, source: "manual", invId: null, addedBy: "masha", createdAt: Date.now() },
       { id: "s2", name: "יוגורט", quantity: 6, unit: "יח׳", category: "מוצרי חלב",
-        checked: false, source: "manual", invId: null, addedBy: "m1", createdAt: Date.now() }
+        checked: false, source: "manual", invId: null, addedBy: "stas", createdAt: Date.now() }
     ];
 
     var st = {
-      currentMember: "m1",
-      members: members,
-      events: events,
-      tasks: tasks,
-      inventory: inventory,
-      shopping: shopping,
-      tab: "home",
-      taskFilter: "mine",
+      currentMember: "masha",
+      members: members, events: events, tasks: tasks,
+      inventory: inventory, shopping: shopping,
+      tab: "home", taskFilter: "mine",
       selectedDay: iso(today),
       calMonth: today.getFullYear() + "-" + today.getMonth()
     };
 
-    /* Run the low-stock rule over the seed so the auto-generated items
-       (קפה, אבקת כביסה, חלב…) appear exactly as the DB trigger would create them. */
     inventory.forEach(function (item) { applyLowStock(st, item.id, true); });
     return st;
   }
 
-  /* ---------- the inventory ⇄ shopping rule ----------
-     Mirrors the two Postgres triggers in docs/schema.sql. Keeping it in one
-     place here is the JS stand-in for keeping it in the database later:
-     every write path goes through these two functions. */
+  /* ================= inventory ⇄ shopping rule =================
+     Mirrors the two Postgres triggers in docs/schema.sql. */
 
   function applyLowStock(st, invId, silent) {
     var item = st.inventory.filter(function (i) { return i.id === invId; })[0];
@@ -564,19 +610,12 @@
     if (open) { open.quantity = needed; return; }   // keep the amount in sync as stock keeps dropping
 
     st.shopping.unshift({
-      id: uid(),
-      name: item.name,
-      quantity: needed,
-      unit: item.unit,
-      category: item.category,
-      checked: false,
-      source: "auto_low_stock",
-      invId: invId,
-      addedBy: null,
-      createdAt: Date.now()
+      id: uid(), name: item.name, quantity: needed, unit: item.unit,
+      category: item.category, checked: false, source: "auto_low_stock",
+      invId: invId, addedBy: null, createdAt: Date.now()
     });
 
-    if (!silent) toast("«" + item.name + "» נוסף אוטומטית לרשימת הקניות", true);
+    if (!silent) toast("«" + item.name + "» נוסף אוטומטית לרשימת הקניות", "warn");
   }
 
   function restockFromShopping(st, shopItem) {
@@ -587,7 +626,59 @@
     toast("המלאי של «" + inv.name + "» עודכן");
   }
 
-  /* ---------- state ---------- */
+  /* ================= reminder rules =================
+     Mirrors rebuild_event_reminders() in docs/schema.sql.
+
+       ימי הולדת וחגים  ⟵  תזכורת אחת, ב-10:30 ביום האירוע
+       כל שאר האירועים  ⟵  שתי תזכורות: 24 שעות לפני, ושעה לפני
+
+     Recipients: both parents, always — plus any child taking part in the
+     event (a participant, or the patient on a medical appointment). */
+
+  var DAY_OF_KINDS = ["birthday", "holiday"];
+
+  function reminderPlan(ev) {
+    if (!ev.remind) return [];
+    var start = new Date(ev.startsAt);
+
+    if (DAY_OF_KINDS.indexOf(ev.kind) !== -1) {
+      var d = new Date(start);
+      d.setHours(10, 30, 0, 0);
+      return [{ kind: "day_of_1030", at: d.getTime(), label: "ביום האירוע, 10:30" }];
+    }
+
+    return [
+      { kind: "lead_24h", at: start.getTime() - 86400000, label: "24 שעות לפני" },
+      { kind: "lead_1h",  at: start.getTime() - 3600000,  label: "שעה לפני" }
+    ];
+  }
+
+  function reminderRecipients(ev) {
+    var ids = state.members
+      .filter(function (m) { return m.role === "parent"; })
+      .map(function (m) { return m.id; });
+
+    function add(id) { if (id && ids.indexOf(id) === -1) ids.push(id); }
+
+    (ev.participants || []).forEach(add);
+    if (ev.appt) add(ev.appt.patientId);
+    return ids;
+  }
+
+  /* Every pending reminder across all events, for one member. */
+  function upcomingRemindersFor(memberId) {
+    var now = Date.now();
+    var out = [];
+    state.events.forEach(function (ev) {
+      if (reminderRecipients(ev).indexOf(memberId) === -1) return;
+      reminderPlan(ev).forEach(function (r) {
+        if (r.at > now) out.push({ event: ev, at: r.at, label: r.label, kind: r.kind });
+      });
+    });
+    return out.sort(function (a, b) { return a.at - b.at; });
+  }
+
+  /* ================= state ================= */
 
   var state;
   try {
@@ -598,30 +689,23 @@
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (err) { /* private mode */ }
   }
-
   function commit() { save(); render(); }
 
   function member(id) {
     return state.members.filter(function (m) { return m.id === id; })[0] || null;
   }
 
-  /* ---------- toasts ---------- */
-
-  function toast(msg, warn) {
+  function toast(msg, tone) {
     var box = document.getElementById("toasts");
-    var t = el('<div class="toast' + (warn ? " warn" : "") + '">' + esc(msg) + "</div>");
+    var t = el('<div class="toast ' + (tone || "") + '">' + esc(msg) + "</div>");
     box.appendChild(t);
-    setTimeout(function () { t.remove(); }, 3200);
+    setTimeout(function () { t.remove(); }, 3400);
   }
 
   /* ---------- derived ---------- */
 
-  function lowStock() {
-    return state.inventory.filter(function (i) { return i.quantity <= i.min; });
-  }
-  function openShopping() {
-    return state.shopping.filter(function (s) { return !s.checked; });
-  }
+  function lowStock() { return state.inventory.filter(function (i) { return i.quantity <= i.min; }); }
+  function openShopping() { return state.shopping.filter(function (s) { return !s.checked; }); }
   function myOpenTasks() {
     return state.tasks.filter(function (t) { return !t.done && t.assignee === state.currentMember; });
   }
@@ -637,6 +721,7 @@
   }
 
   var TICK = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+  var BELL = '<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
 
   /* ================= screens ================= */
 
@@ -655,13 +740,12 @@
 
     var low = lowStock();
     var mine = myOpenTasks();
+    var rems = upcomingRemindersFor(state.currentMember).slice(0, 4);
     var out = [];
 
     out.push(
-      '<div class="hero">' +
-        "<h1>" + greet + ", " + esc(me.name) + "</h1>" +
-        "<p>יום " + DOW_LONG[now.getDay()] + ", " + now.getDate() + " ב" + MONTHS[now.getMonth()] + "</p>" +
-      "</div>"
+      '<div class="hero"><h1>' + greet + ", " + esc(me.name) + "</h1>" +
+      "<p>יום " + DOW_LONG[now.getDay()] + ", " + now.getDate() + " ב" + MONTHS[now.getMonth()] + "</p></div>"
     );
 
     out.push(
@@ -670,6 +754,21 @@
         '<button class="tile" data-go="calendar"><b>' + eventsOn(now).length + "</b><span>אירועים היום</span></button>" +
         '<button class="tile" data-go="shopping"><b>' + openShopping().length + "</b><span>פריטים ברשימת קניות</span></button>" +
         '<button class="tile' + (low.length ? " alert" : "") + '" data-go="inventory"><b>' + low.length + "</b><span>מוצרים שנגמרים</span></button>" +
+      "</div>"
+    );
+
+    out.push(
+      '<div class="sec"><div class="sec-head"><h2>התזכורות הקרובות שלי</h2></div>' +
+      (rems.length
+        ? '<div class="card rows">' + rems.map(function (r) {
+            var d = new Date(r.at);
+            return '<button class="row" data-event="' + r.event.id + '">' +
+              '<span class="pill med">' + esc(r.label) + "</span>" +
+              '<div class="grow"><div class="ttl truncate">' + esc(r.event.title) + "</div>" +
+              '<div class="sub">התראה ב' + shortDate(d) + ", " + timeStr(d) + "</div></div>" +
+            "</button>";
+          }).join("") + "</div>"
+        : '<div class="card"><div class="empty">אין תזכורות ממתינות</div></div>') +
       "</div>"
     );
 
@@ -683,17 +782,13 @@
 
     if (low.length) {
       out.push(
-        '<div class="sec"><div class="sec-head"><h2>נגמר בבית</h2></div>' +
-        '<div class="card rows">' +
+        '<div class="sec"><div class="sec-head"><h2>נגמר בבית</h2></div><div class="card rows">' +
         low.map(function (i) {
           var inList = state.shopping.filter(function (s) { return s.invId === i.id && !s.checked; })[0];
-          return '<div class="row">' +
-            '<div class="grow"><div class="ttl">' + esc(i.name) + "</div>" +
+          return '<div class="row"><div class="grow"><div class="ttl">' + esc(i.name) + "</div>" +
             '<div class="sub">' + esc(i.location) + " · נשארו " + i.quantity + " " + esc(i.unit) + "</div></div>" +
-            (inList ? '<span class="pill med">ברשימת הקניות</span>' : '<span class="pill warn">חסר</span>') +
-            "</div>";
-        }).join("") +
-        "</div></div>"
+            (inList ? '<span class="pill med">ברשימת הקניות</span>' : '<span class="pill warn">חסר</span>') + "</div>";
+        }).join("") + "</div></div>"
       );
     }
 
@@ -711,10 +806,9 @@
       var d = new Date(e.startsAt);
       var parts = (e.participants || []).map(function (id) { return avatar(member(id), "xs"); }).join("");
       return '<button class="row" data-event="' + e.id + '">' +
-        '<div class="grow">' +
-          '<div class="ttl truncate">' + esc(e.title) + "</div>" +
-          '<div class="sub">' + relDay(d) + " · " + timeStr(d) + (e.location ? " · " + esc(e.location) : "") + "</div>" +
-        "</div>" +
+        '<div class="grow"><div class="ttl truncate">' + esc(e.title) + "</div>" +
+          '<div class="sub">' + relDay(d) + (e.allDay ? "" : " · " + timeStr(d)) +
+          (e.location ? " · " + esc(e.location) : "") + "</div></div>" +
         (e.kind === "appointment" ? '<span class="pill warn">תור</span>' : "") +
         '<span style="display:flex;gap:2px">' + parts + "</span>" +
       "</button>";
@@ -725,18 +819,15 @@
     if (!list.length) return '<div class="card"><div class="empty">' + esc(emptyMsg) + "</div></div>";
     var now = Date.now();
     return '<div class="card rows">' + list.map(function (t) {
-      var m = member(t.assignee);
       var late = !t.done && t.dueAt && t.dueAt < now;
       return '<div class="row' + (t.done ? " done" : "") + '">' +
         '<span class="prio p' + t.priority + '"></span>' +
         '<button class="check' + (t.done ? " on" : "") + '" data-task="' + t.id + '" aria-label="סמן כבוצע">' + TICK + "</button>" +
-        '<div class="grow">' +
-          '<div class="ttl truncate">' + esc(t.title) + "</div>" +
+        '<div class="grow"><div class="ttl truncate">' + esc(t.title) + "</div>" +
           '<div class="sub' + (late ? " overdue" : "") + '">' +
             (t.dueAt ? (late ? "באיחור · " : "") + relDay(new Date(t.dueAt)) + " " + timeStr(new Date(t.dueAt)) : "ללא תאריך יעד") +
-          "</div>" +
-        "</div>" +
-        avatar(m, "sm") +
+          "</div></div>" +
+        avatar(member(t.assignee), "sm") +
       "</div>";
     }).join("") + "</div>";
   }
@@ -745,17 +836,15 @@
     var parts = state.calMonth.split("-");
     var year = +parts[0], mon = +parts[1];
     var first = new Date(year, mon, 1);
-    var start = addDays(first, -first.getDay());          // grid starts on Sunday
+    var start = addDays(first, -first.getDay());
     var today = new Date();
     var sel = new Date(state.selectedDay + "T00:00:00");
 
     var cells = [];
     for (var k = 0; k < 42; k++) {
       var d = addDays(start, k);
-      var evs = eventsOn(d);
-      var dots = evs.slice(0, 4).map(function (e) {
-        var pid = (e.participants && e.participants[0]) || null;
-        var m = member(pid);
+      var dots = eventsOn(d).slice(0, 4).map(function (e) {
+        var m = member((e.participants && e.participants[0]) || null);
         return '<span class="dot" style="background:' + (m ? m.color : "var(--ink-faint)") + '"></span>';
       }).join("");
       cells.push(
@@ -763,10 +852,8 @@
           (d.getMonth() !== mon ? " out" : "") +
           (sameDay(d, today) ? " today" : "") +
           (sameDay(d, sel) ? " sel" : "") +
-        '" data-day="' + iso(d) + '">' +
-          "<span>" + d.getDate() + "</span>" +
-          '<span class="dots">' + dots + "</span>" +
-        "</button>"
+        '" data-day="' + iso(d) + '"><span>' + d.getDate() + "</span>" +
+        '<span class="dots">' + dots + "</span></button>"
       );
     }
 
@@ -784,9 +871,8 @@
         '<div class="grid7">' + DOW.map(function (x) { return '<div class="dow">' + x + "</div>"; }).join("") + "</div>" +
         '<div class="grid7">' + cells.join("") + "</div>" +
       "</div>" +
-
       '<div class="sec"><div class="sec-head"><h2>' + relDay(sel) + "</h2>" +
-      '<span class="aside">' + sel.getDate() + "." + (sel.getMonth() + 1) + "</span></div>" +
+      '<span class="aside">' + shortDate(sel) + "</span></div>" +
       (selEvents.length
         ? selEvents.map(eventCard).join("")
         : '<div class="card"><div class="empty">אין אירועים ביום זה</div></div>') +
@@ -796,20 +882,27 @@
 
   function eventCard(e) {
     var d = new Date(e.startsAt);
+
     var parts = (e.participants || []).map(function (id) {
       var m = member(id);
       return m ? avatar(m, "xs") + '<span style="font-size:.76rem;color:var(--ink-soft)">' + esc(m.name) + "</span>" : "";
     }).join('<span style="width:.4rem"></span>');
 
     var head =
-      '<div class="appt-top">' +
-        '<b style="font-size:.95rem">' + esc(e.title) + "</b>" +
+      '<div class="appt-top"><b style="font-size:.95rem">' + esc(e.title) + "</b>" +
         (e.kind === "appointment" ? '<span class="pill warn">תור רפואי</span>' : "") +
+        (e.kind === "holiday" ? '<span class="pill med">חג</span>' : "") +
+        (e.kind === "birthday" ? '<span class="pill med">יום הולדת</span>' : "") +
         (e.rrule ? '<span class="pill">חוזר</span>' : "") +
       "</div>";
 
-    var rows = '<dl><dt>מתי</dt><dd>' + timeStr(d) + ", " + relDay(d) + "</dd>";
+    var rows = "<dl><dt>מתי</dt><dd>" + (e.allDay ? relDay(d) + " (כל היום)" : timeStr(d) + ", " + relDay(d)) + "</dd>";
     if (e.location) rows += "<dt>איפה</dt><dd>" + esc(e.location) + "</dd>";
+
+    if (e.birthdayFor) {
+      var bm = member(e.birthdayFor);
+      if (bm) rows += "<dt>גיל</dt><dd>" + (ageOn(bm.birth, d) ) + "</dd>";
+    }
 
     if (e.appt) {
       var p = member(e.appt.patientId);
@@ -821,7 +914,31 @@
 
     return '<div class="card appt">' + head + rows +
       (e.appt && e.appt.prep ? '<div class="prep">להכין מראש: ' + esc(e.appt.prep) + "</div>" : "") +
-      '<div style="display:flex;align-items:center;gap:.25rem;flex-wrap:wrap">' + parts + "</div>" +
+      reminderBlock(e) +
+      (parts ? '<div style="display:flex;align-items:center;gap:.25rem;flex-wrap:wrap">' + parts + "</div>" : "") +
+    "</div>";
+  }
+
+  function reminderBlock(e) {
+    var plan = reminderPlan(e);
+    var to = reminderRecipients(e).map(function (id) {
+      var m = member(id);
+      return m ? avatar(m, "xs") + '<span>' + esc(m.name) + "</span>" : "";
+    }).join('<span style="width:.25rem"></span>');
+
+    return '<div class="rem' + (e.remind ? "" : " off") + '">' +
+      '<div class="rem-head">' + BELL + "<span>תזכורות</span>" +
+        '<button class="toggle' + (e.remind ? " on" : "") + '" data-remind="' + e.id +
+        '" role="switch" aria-checked="' + (e.remind ? "true" : "false") + '" aria-label="הפעלת תזכורות"></button>' +
+      "</div>" +
+      (e.remind
+        ? plan.map(function (r) {
+            var d = new Date(r.at);
+            return '<div class="rem-line"><b>' + esc(r.label) + "</b>" +
+              '<span class="when">' + shortDate(d) + ", " + timeStr(d) + "</span></div>";
+          }).join("") +
+          '<div class="rem-to">נשלח אל:' + to + "</div>"
+        : '<div class="rem-line">כבויות עבור האירוע הזה</div>') +
     "</div>";
   }
 
@@ -835,16 +952,15 @@
 
     var byMember = state.members.map(function (m) {
       var n = state.tasks.filter(function (t) { return !t.done && t.assignee === m.id; }).length;
-      return '<div class="row"><span class="avatar sm" style="background:' + m.color + '">' + esc(m.name.charAt(0)) +
-        '</span><div class="grow"><div class="ttl">' + esc(m.name) + "</div></div>" +
+      return '<div class="row">' + avatar(m, "sm") +
+        '<div class="grow"><div class="ttl">' + esc(m.name) + "</div>" +
+        '<div class="sub">' + (m.role === "parent" ? "הורה" : "ילד/ה") + " · גיל " + ageOn(m.birth, new Date()) + "</div></div>" +
         '<span class="pill' + (n ? "" : " med") + '">' + (n ? n + " פתוחות" : "הכול סגור") + "</span></div>";
     }).join("");
 
     return (
-      '<div class="adder">' +
-        '<input id="taskInput" placeholder="משימה חדשה…" aria-label="משימה חדשה">' +
-        '<button data-addtask="1">הוספה</button>' +
-      "</div>" +
+      '<div class="adder"><input id="taskInput" placeholder="משימה חדשה…" aria-label="משימה חדשה">' +
+      '<button data-addtask="1">הוספה</button></div>' +
       '<div class="chips">' +
         '<button class="chip' + (f === "mine" ? " on" : "") + '" data-tfilter="mine">שלי</button>' +
         '<button class="chip' + (f === "all" ? " on" : "") + '" data-tfilter="all">של כולם</button>' +
@@ -867,21 +983,17 @@
     });
 
     var body = cats.map(function (c) {
-      var items = open.filter(function (s) { return (s.category || "אחר") === c; });
       return '<div class="cat-head">' + esc(c) + "</div>" +
-        items.map(shoppingRow).join("");
+        open.filter(function (s) { return (s.category || "אחר") === c; }).map(shoppingRow).join("");
     }).join("");
 
     return (
-      '<div class="adder">' +
-        '<input id="shopInput" placeholder="מה חסר? למשל: במבה" aria-label="פריט חדש">' +
-        '<button data-addshop="1">הוספה</button>' +
-      "</div>" +
+      '<div class="adder"><input id="shopInput" placeholder="מה חסר? למשל: במבה" aria-label="פריט חדש">' +
+      '<button data-addshop="1">הוספה</button></div>' +
       '<div class="sec"><div class="sec-head"><h2>לקנות</h2>' +
       '<span class="aside">' + open.length + " פריטים</span></div>" +
       (open.length ? '<div class="card rows">' + body + "</div>"
-                   : '<div class="card"><div class="empty">הרשימה ריקה</div></div>') +
-      "</div>" +
+                   : '<div class="card"><div class="empty">הרשימה ריקה</div></div>') + "</div>" +
       (done.length
         ? '<div class="sec"><div class="sec-head"><h2>בעגלה</h2>' +
           '<button class="chip" data-clearshop="1">ניקוי</button></div>' +
@@ -899,10 +1011,8 @@
     return '<div class="row' + (s.checked ? " done" : "") + '">' +
       '<button class="check' + (s.checked ? " on" : "") + '" data-shop="' + s.id + '" aria-label="סמן כנקנה">' + TICK + "</button>" +
       '<div class="grow"><div class="ttl truncate">' + esc(s.name) + "</div>" +
-      '<div class="sub">' + s.quantity + " " + esc(s.unit || "יח׳") + "</div></div>" +
-      meta +
-      '<button class="del" data-delshop="' + s.id + '" aria-label="מחיקה">×</button>' +
-    "</div>";
+      '<div class="sub">' + s.quantity + " " + esc(s.unit || "יח׳") + "</div></div>" + meta +
+      '<button class="del" data-delshop="' + s.id + '" aria-label="מחיקה">×</button></div>';
   }
 
   function screenInventory() {
@@ -910,30 +1020,24 @@
     state.inventory.forEach(function (i) {
       if (locations.indexOf(i.location) === -1) locations.push(i.location);
     });
-
     var low = lowStock().length;
 
     var body = locations.map(function (loc) {
-      var items = state.inventory.filter(function (i) { return i.location === loc; });
-      return '<div class="cat-head">' + esc(loc) + "</div>" + items.map(function (i) {
-        var isLow = i.quantity <= i.min;
-        var pct = Math.max(4, Math.min(100, (i.quantity / Math.max(i.min * 2, 1)) * 100));
-        return '<div class="inv' + (isLow ? " low" : "") + '">' +
-          '<div class="grow">' +
-            '<div style="display:flex;align-items:center;gap:.4rem">' +
-              '<span class="ttl">' + esc(i.name) + "</span>" +
-              (isLow ? '<span class="pill warn">חסר</span>' : "") +
-            "</div>" +
+      return '<div class="cat-head">' + esc(loc) + "</div>" +
+        state.inventory.filter(function (i) { return i.location === loc; }).map(function (i) {
+          var isLow = i.quantity <= i.min;
+          var pct = Math.max(4, Math.min(100, (i.quantity / Math.max(i.min * 2, 1)) * 100));
+          return '<div class="inv' + (isLow ? " low" : "") + '"><div class="grow">' +
+            '<div style="display:flex;align-items:center;gap:.4rem"><span class="ttl">' + esc(i.name) + "</span>" +
+            (isLow ? '<span class="pill warn">חסר</span>' : "") + "</div>" +
             '<div class="sub">סף מינימום ' + i.min + " " + esc(i.unit) + "</div>" +
-            '<div class="bar"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
-          "</div>" +
-          '<div class="stepper">' +
-            '<button data-inv="' + i.id + '" data-d="-1" aria-label="הפחתה"' + (i.quantity <= 0 ? " disabled" : "") + ">−</button>" +
-            "<b>" + i.quantity + " " + esc(i.unit) + "</b>" +
-            '<button data-inv="' + i.id + '" data-d="1" aria-label="הוספה">+</button>' +
-          "</div>" +
-        "</div>";
-      }).join("");
+            '<div class="bar"><div class="bar-fill" style="width:' + pct + '%"></div></div></div>' +
+            '<div class="stepper">' +
+              '<button data-inv="' + i.id + '" data-d="-1" aria-label="הפחתה"' + (i.quantity <= 0 ? " disabled" : "") + ">−</button>" +
+              "<b>" + i.quantity + " " + esc(i.unit) + "</b>" +
+              '<button data-inv="' + i.id + '" data-d="1" aria-label="הוספה">+</button>' +
+            "</div></div>";
+        }).join("");
     }).join("");
 
     return (
@@ -955,18 +1059,14 @@
   ];
 
   function render() {
-    /* member switcher */
     document.getElementById("who").innerHTML = state.members.map(function (m) {
       return '<button class="avatar' + (m.id === state.currentMember ? " on" : "") +
-        '" style="background:' + m.color + ";color:" + m.color + '" data-member="' + m.id +
-        '" title="' + esc(m.name) + '" aria-label="' + esc(m.name) + '">' +
-        '<span style="color:#fff">' + esc(m.name.charAt(0)) + "</span></button>";
+        '" style="background:' + m.color + '" data-member="' + m.id +
+        '" title="' + esc(m.name) + '" aria-label="' + esc(m.name) + '">' + esc(m.name.charAt(0)) + "</button>";
     }).join("");
 
-    document.getElementById("topSub").textContent =
-      "מחוברים כ" + member(state.currentMember).name + " · אב טיפוס";
+    document.getElementById("topSub").textContent = "מחוברים כ" + member(state.currentMember).name;
 
-    /* bottom nav with live badges */
     var badges = {
       shopping: openShopping().length,
       inventory: lowStock().length,
@@ -975,19 +1075,17 @@
     document.getElementById("nav").innerHTML = TABS.map(function (t) {
       var n = badges[t.id];
       return '<button class="' + (state.tab === t.id ? "on" : "") + '" data-tab="' + t.id + '">' +
-        '<svg viewBox="0 0 24 24">' + t.icon + "</svg>" +
-        "<span>" + t.label + "</span>" +
-        (n ? '<span class="count">' + n + "</span>" : "") +
-      "</button>";
+        '<svg viewBox="0 0 24 24">' + t.icon + "</svg><span>" + t.label + "</span>" +
+        (n ? '<span class="count">' + n + "</span>" : "") + "</button>";
     }).join("");
 
     var screen = document.getElementById("screen");
     screen.innerHTML =
-      state.tab === "home"      ? screenHome() :
-      state.tab === "calendar"  ? screenCalendar() :
-      state.tab === "tasks"     ? screenTasks() :
-      state.tab === "shopping"  ? screenShopping() :
-                                  screenInventory();
+      state.tab === "home"     ? screenHome() :
+      state.tab === "calendar" ? screenCalendar() :
+      state.tab === "tasks"    ? screenTasks() :
+      state.tab === "shopping" ? screenShopping() :
+                                 screenInventory();
     screen.scrollTop = 0;
   }
 
@@ -995,16 +1093,26 @@
 
   document.addEventListener("click", function (ev) {
     var el2 = ev.target.closest("[data-tab],[data-member],[data-go],[data-task],[data-shop],[data-delshop]," +
-      "[data-inv],[data-tfilter],[data-addtask],[data-addshop],[data-clearshop],[data-day],[data-mon],[data-reset],[data-event]");
+      "[data-inv],[data-tfilter],[data-addtask],[data-addshop],[data-clearshop],[data-day],[data-mon]," +
+      "[data-reset],[data-event],[data-remind]");
     if (!el2) return;
     var d = el2.dataset;
 
-    if (d.tab)    { state.tab = d.tab; return commit(); }
-    if (d.go)     { state.tab = d.go; return commit(); }
-    if (d.member) { state.currentMember = d.member; return commit(); }
-    if (d.tfilter){ state.taskFilter = d.tfilter; return commit(); }
+    if (d.remind) {
+      var re = state.events.filter(function (x) { return x.id === d.remind; })[0];
+      if (re) {
+        re.remind = !re.remind;
+        toast(re.remind ? "התזכורות הופעלו" : "התזכורות כובו", re.remind ? "info" : "");
+      }
+      return commit();
+    }
 
-    if (d.event)  { /* jump to that event's day in the calendar */
+    if (d.tab)     { state.tab = d.tab; return commit(); }
+    if (d.go)      { state.tab = d.go; return commit(); }
+    if (d.member)  { state.currentMember = d.member; return commit(); }
+    if (d.tfilter) { state.taskFilter = d.tfilter; return commit(); }
+
+    if (d.event) {
       var e = state.events.filter(function (x) { return x.id === d.event; })[0];
       if (e) {
         var dt = new Date(e.startsAt);
@@ -1015,10 +1123,12 @@
       return commit();
     }
 
-    if (d.day)    { state.selectedDay = d.day;
-                    var dd = new Date(d.day + "T00:00:00");
-                    state.calMonth = dd.getFullYear() + "-" + dd.getMonth();
-                    return commit(); }
+    if (d.day) {
+      state.selectedDay = d.day;
+      var dd = new Date(d.day + "T00:00:00");
+      state.calMonth = dd.getFullYear() + "-" + dd.getMonth();
+      return commit();
+    }
 
     if (d.mon) {
       var p = state.calMonth.split("-");
@@ -1029,10 +1139,7 @@
 
     if (d.task) {
       var t = state.tasks.filter(function (x) { return x.id === d.task; })[0];
-      if (t) {
-        t.done = !t.done;
-        if (t.done) toast("«" + t.title + "» סומנה כבוצעה");
-      }
+      if (t) { t.done = !t.done; if (t.done) toast("«" + t.title + "» סומנה כבוצעה"); }
       return commit();
     }
 
@@ -1041,7 +1148,7 @@
       if (s) {
         s.checked = !s.checked;
         s.checkedBy = s.checked ? state.currentMember : null;
-        if (s.checked) restockFromShopping(state, s);       // trigger #2
+        if (s.checked) restockFromShopping(state, s);
       }
       return commit();
     }
@@ -1056,8 +1163,7 @@
       if (i) {
         var wasLow = i.quantity <= i.min;
         i.quantity = Math.max(0, i.quantity + (+d.d));
-        if (!wasLow) applyLowStock(state, i.id);            // trigger #1
-        else applyLowStock(state, i.id, true);
+        applyLowStock(state, i.id, wasLow);
       }
       return commit();
     }
@@ -1066,10 +1172,7 @@
       var ti = document.getElementById("taskInput");
       var v = ti.value.trim();
       if (!v) return;
-      state.tasks.unshift({
-        id: uid(), title: v, assignee: state.currentMember,
-        dueAt: null, priority: 2, done: false
-      });
+      state.tasks.unshift({ id: uid(), title: v, assignee: state.currentMember, dueAt: null, priority: 2, done: false });
       ti.value = "";
       return commit();
     }
@@ -1093,17 +1196,13 @@
       return commit();
     }
 
-    if (d.reset) {
-      state = seed();
-      toast("הנתונים אופסו");
-      return commit();
-    }
+    if (d.reset) { state = seed(); toast("הנתונים אופסו"); return commit(); }
   });
 
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Enter") return;
-    if (ev.target.id === "taskInput")  document.querySelector("[data-addtask]").click();
-    if (ev.target.id === "shopInput")  document.querySelector("[data-addshop]").click();
+    if (ev.target.id === "taskInput") document.querySelector("[data-addtask]").click();
+    if (ev.target.id === "shopInput") document.querySelector("[data-addshop]").click();
   });
 
   render();

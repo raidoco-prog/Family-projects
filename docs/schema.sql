@@ -51,7 +51,7 @@ $$;
 -- 2. יומן ותורים רפואיים
 -- ------------------------------------------------------------
 
-create type event_kind as enum ('general', 'appointment', 'birthday', 'school', 'reminder');
+create type event_kind as enum ('general', 'appointment', 'birthday', 'holiday', 'school', 'reminder');
 
 create table events (
   id            uuid primary key default gen_random_uuid(),
@@ -65,6 +65,7 @@ create table events (
   all_day       boolean not null default false,
   rrule         text,                    -- חזרתיות בתקן RFC 5545, למשל FREQ=WEEKLY;BYDAY=SU,TU
   color         text,
+  reminders_on  boolean not null default true,   -- כיבוי תזכורות לאירוע בודד
   created_by    uuid references members(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
@@ -96,6 +97,120 @@ create table appointments (
 );
 
 create index on appointments (patient_id);
+
+-- ------------------------------------------------------------
+-- 2ב. תזכורות לאירועים
+--
+--   ימי הולדת וחגים  ⟵  תזכורת אחת, ב-10:30 ביום האירוע עצמו
+--   כל שאר האירועים  ⟵  שתי תזכורות: 24 שעות לפני, ושעה לפני
+--
+-- הנמענים: שני ההורים תמיד, ובנוסף כל ילד שהאירוע נוגע לו —
+-- משתתף באירוע, או המטופל בתור רפואי.
+--
+-- השורות כאן הן תור עבודה: פונקציית ה-cron סורקת fire_at שהגיע
+-- ו-sent_at ריק, שולחת פוש, ומסמנת. זה מה שהופך תזכורת שהוחמצה
+-- לניתנת לאיתור במקום להיעלם בשקט.
+-- ------------------------------------------------------------
+
+create type reminder_kind as enum ('lead_24h', 'lead_1h', 'day_of_1030');
+
+create table event_reminders (
+  id         uuid primary key default gen_random_uuid(),
+  event_id   uuid not null references events(id) on delete cascade,
+  member_id  uuid not null references members(id) on delete cascade,
+  kind       reminder_kind not null,
+  fire_at    timestamptz not null,
+  sent_at    timestamptz,
+  unique (event_id, member_id, kind)
+);
+
+-- האינדקס שהקרון סורק: רק תזכורות שטרם נשלחו.
+create index event_reminders_pending
+  on event_reminders (fire_at)
+  where sent_at is null;
+
+create or replace function rebuild_event_reminders(p_event_id uuid)
+returns void
+language plpgsql
+as $$
+declare
+  ev  events%rowtype;
+  tz  text;
+begin
+  select * into ev from events where id = p_event_id;
+  if not found then
+    return;
+  end if;
+
+  -- תזכורות שכבר נשלחו נשארות כרשומת היסטוריה; רק הממתינות נבנות מחדש.
+  delete from event_reminders where event_id = p_event_id and sent_at is null;
+
+  if not ev.reminders_on then
+    return;
+  end if;
+
+  select timezone into tz from households where id = ev.household_id;
+  tz := coalesce(tz, 'Asia/Jerusalem');
+
+  insert into event_reminders (event_id, member_id, kind, fire_at)
+  select ev.id, r.member_id, p.kind, p.fire_at
+  from (
+    -- הורים תמיד; ילדים רק אם האירוע נוגע להם
+    select m.id as member_id
+      from members m
+     where m.household_id = ev.household_id
+       and (
+         m.role = 'parent'
+         or m.id in (select member_id from event_participants where event_id = ev.id)
+         or m.id = (select patient_id from appointments where event_id = ev.id)
+       )
+  ) r
+  cross join lateral (
+    select *
+      from (
+        values
+          ('lead_24h'::reminder_kind,    ev.starts_at - interval '24 hours'),
+          ('lead_1h'::reminder_kind,     ev.starts_at - interval '1 hour'),
+          ('day_of_1030'::reminder_kind,
+             ((ev.starts_at at time zone tz)::date + time '10:30') at time zone tz)
+      ) as v(kind, fire_at)
+     where case
+             when ev.kind in ('birthday', 'holiday') then v.kind = 'day_of_1030'
+             else v.kind in ('lead_24h', 'lead_1h')
+           end
+  ) p
+  on conflict (event_id, member_id, kind) do update
+    set fire_at = excluded.fire_at;
+end;
+$$;
+
+create or replace function trg_rebuild_reminders_event()
+returns trigger language plpgsql as $$
+begin
+  perform rebuild_event_reminders(new.id);
+  return new;
+end;
+$$;
+
+create or replace function trg_rebuild_reminders_child()
+returns trigger language plpgsql as $$
+begin
+  perform rebuild_event_reminders(coalesce(new.event_id, old.event_id));
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger events_reminders_sync
+  after insert or update of starts_at, kind, reminders_on on events
+  for each row execute function trg_rebuild_reminders_event();
+
+create trigger participants_reminders_sync
+  after insert or delete on event_participants
+  for each row execute function trg_rebuild_reminders_child();
+
+create trigger appointments_reminders_sync
+  after insert or update of patient_id on appointments
+  for each row execute function trg_rebuild_reminders_child();
 
 -- ------------------------------------------------------------
 -- 3. משימות
@@ -246,6 +361,7 @@ alter table members           enable row level security;
 alter table events            enable row level security;
 alter table event_participants enable row level security;
 alter table appointments      enable row level security;
+alter table event_reminders   enable row level security;
 alter table tasks             enable row level security;
 alter table inventory_items   enable row level security;
 alter table shopping_items    enable row level security;
@@ -289,6 +405,18 @@ create policy participant_access on event_participants
   );
 
 create policy appointment_access on appointments
+  for all using (
+    event_id in (
+      select id from events where household_id in (select current_household_ids())
+    )
+  )
+  with check (
+    event_id in (
+      select id from events where household_id in (select current_household_ids())
+    )
+  );
+
+create policy reminder_access on event_reminders
   for all using (
     event_id in (
       select id from events where household_id in (select current_household_ids())
