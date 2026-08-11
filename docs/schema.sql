@@ -136,6 +136,7 @@ create table inventory_items (
   unit              text not null default 'יח׳',
   quantity          numeric not null default 0,
   min_quantity      numeric not null default 1, -- הסף שמתחתיו נפתח פריט קניות
+  target_quantity   numeric,                    -- לכמה להשלים בקנייה; ברירת מחדל: פי שניים מהסף
   auto_restock      boolean not null default true,
   barcode           text,
   expires_on        date,
@@ -179,30 +180,37 @@ create unique index shopping_items_one_open_per_inventory
 -- ------------------------------------------------------------
 
 -- כמות ירדה לסף או מתחתיו ⟵ פריט נכנס לרשימת הקניות.
+--
+-- שתי נקודות עדינות שקל לפספס:
+--   1. קונים עד יעד ההשלמה, לא עד הסף. השלמה עד הסף בלבד מחזירה אתכם
+--      מיד למצב חוסר אחרי הקנייה הראשונה.
+--   2. אם המלאי ממשיך לרדת בזמן שהפריט כבר ברשימה — הכמות ברשימה מתעדכנת.
+--      בלי זה הכמות קופאת ברגע חציית הסף ולא מספיקה עד שמגיעים לסופר.
 create or replace function sync_low_stock_to_shopping()
 returns trigger
 language plpgsql
 as $$
+declare
+  v_target numeric := coalesce(new.target_quantity, new.min_quantity * 2);
+  v_needed numeric := greatest(v_target - new.quantity, 1);
 begin
-  if new.auto_restock and new.quantity <= new.min_quantity then
-    insert into shopping_items
-      (household_id, name, quantity, unit, category, source, inventory_item_id)
-    values
-      (new.household_id,
-       new.name,
-       greatest(new.min_quantity - new.quantity, 1),
-       new.unit,
-       new.category,
-       'auto_low_stock',
-       new.id)
-    on conflict do nothing;   -- נשען על shopping_items_one_open_per_inventory
+  if not new.auto_restock or new.quantity > new.min_quantity then
+    return new;
   end if;
+
+  insert into shopping_items
+    (household_id, name, quantity, unit, category, source, inventory_item_id)
+  values
+    (new.household_id, new.name, v_needed, new.unit, new.category, 'auto_low_stock', new.id)
+  on conflict (inventory_item_id) where (inventory_item_id is not null and is_checked = false)
+  do update set quantity = excluded.quantity;
+
   return new;
 end;
 $$;
 
 create trigger trg_inventory_low_stock
-  after insert or update of quantity, min_quantity, auto_restock
+  after insert or update of quantity, min_quantity, target_quantity, auto_restock
   on inventory_items
   for each row
   execute function sync_low_stock_to_shopping();
@@ -294,9 +302,17 @@ create policy appointment_access on appointments
 
 -- ------------------------------------------------------------
 -- 7. סנכרון חי (Supabase Realtime)
+--    ה-publication קיים רק ב-Supabase. התנאי מאפשר להריץ את אותו
+--    קובץ גם מול Postgres רגיל באחסון עצמי, בלי שגיאה.
 -- ------------------------------------------------------------
 
-alter publication supabase_realtime add table shopping_items;
-alter publication supabase_realtime add table inventory_items;
-alter publication supabase_realtime add table tasks;
-alter publication supabase_realtime add table events;
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime add table shopping_items;
+    alter publication supabase_realtime add table inventory_items;
+    alter publication supabase_realtime add table tasks;
+    alter publication supabase_realtime add table events;
+  end if;
+end
+$$;
