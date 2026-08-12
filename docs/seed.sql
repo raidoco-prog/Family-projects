@@ -74,6 +74,23 @@ begin
     (ev, m_shani, 'ד״ר לוי', 'רופא שיניים', 'מכבידנט', 'מכבי',
      '03-1234567', 'לצחצח שיניים לפני, להביא טופס 17');
 
+  -- ---------- משימות ----------
+  -- אחת באיחור בכוונה, כדי לראות את הסימון האדום.
+  insert into tasks (household_id, title, assignee_id, due_at, priority, status, created_by)
+  values
+    (hh, 'להוציא את הזבל',        m_yonatan,
+     ((current_date)::timestamp     + time '20:00') at time zone 'Asia/Jerusalem', 3, 'open',  m_first),
+    (hh, 'לתאם טיפול לרכב',        m_stas,
+     ((current_date - 1)::timestamp + time '10:00') at time zone 'Asia/Jerusalem', 1, 'open',  m_first),
+    (hh, 'לקנות מתנה ליום הולדת',  m_first,
+     ((current_date + 2)::timestamp + time '12:00') at time zone 'Asia/Jerusalem', 2, 'open',  m_first),
+    (hh, 'לסדר את החדר',           m_shani,
+     ((current_date)::timestamp     + time '18:00') at time zone 'Asia/Jerusalem', 3, 'open',  m_first),
+    (hh, 'לשלם ארנונה',            m_first,
+     ((current_date + 5)::timestamp + time '12:00') at time zone 'Asia/Jerusalem', 2, 'open',  m_first),
+    (hh, 'להחזיר ספרים לספרייה',   m_yonatan,
+     ((current_date - 2)::timestamp + time '16:00') at time zone 'Asia/Jerusalem', 2, 'done',  m_first);
+
   -- ---------- אירוע שבועי חוזר ----------
   insert into events (household_id, kind, title, location, starts_at, rrule, created_by)
        values (hh, 'general', 'אימון כדורסל — יונתן', 'אולם הספורט',

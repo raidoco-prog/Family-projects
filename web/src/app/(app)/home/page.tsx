@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import MemberAvatar from "@/components/MemberAvatar";
-import type { InventoryItem, ShoppingItem } from "@/lib/types";
+import type { InventoryItem, ShoppingItem, Task } from "@/lib/types";
 
 function greeting(hour: number) {
   if (hour < 11) return "בוקר טוב";
@@ -12,9 +12,8 @@ function greeting(hour: number) {
 }
 
 const NEXT_STEPS = [
-  { phase: "שלב 2", text: "יומן, תורים רפואיים ותזכורות" },
-  { phase: "שלב 3", text: "משימות עם אחראי" },
   { phase: "שלב 4", text: "התראות פוש לטלפון" },
+  { phase: "שלב 5", text: "מצב אופליין וליטוש" },
 ];
 
 export default async function HomePage() {
@@ -26,7 +25,7 @@ export default async function HomePage() {
   const pending = members.filter((m) => !m.user_id);
 
   const supabase = await createClient();
-  const [{ data: shopping }, { data: inventory }] = await Promise.all([
+  const [{ data: shopping }, { data: inventory }, { data: myTasks }] = await Promise.all([
     supabase
       .from("shopping_items")
       .select("id,is_checked")
@@ -43,6 +42,14 @@ export default async function HomePage() {
           "id" | "name" | "quantity" | "min_quantity" | "unit" | "storage_location"
         >[]
       >(),
+    supabase
+      .from("tasks")
+      .select("id,title,due_at,priority,status")
+      .eq("household_id", session.household.id)
+      .eq("assignee_id", member.id)
+      .in("status", ["open", "in_progress"])
+      .order("due_at", { nullsFirst: false })
+      .returns<Pick<Task, "id" | "title" | "due_at" | "priority" | "status">[]>(),
   ]);
 
   const openShopping = shopping?.length ?? 0;
@@ -60,6 +67,15 @@ export default async function HomePage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
+        <Link
+          href="/tasks"
+          className="flex flex-col rounded-2xl border border-rule bg-surface p-3 shadow-[var(--shadow)]"
+        >
+          <b className="text-2xl font-bold leading-tight tabular-nums">
+            {myTasks?.length ?? 0}
+          </b>
+          <span className="text-[0.74rem] text-ink-soft">משימות פתוחות שלי</span>
+        </Link>
         <Link
           href="/shopping"
           className="flex flex-col rounded-2xl border border-rule bg-surface p-3 shadow-[var(--shadow)]"
@@ -108,6 +124,29 @@ export default async function HomePage() {
                 </div>
                 <span className="rounded-full bg-signal-pastel px-2 py-0.5 text-[0.66rem] font-bold text-signal">
                   חסר
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {myTasks?.length ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-[0.74rem] font-bold uppercase tracking-[0.11em] text-ink-faint">
+            המשימות שלי
+          </h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface shadow-[var(--shadow)]">
+            {myTasks.slice(0, 4).map((t) => (
+              <li key={t.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                <span
+                  aria-hidden="true"
+                  className={`h-6 w-[3px] shrink-0 rounded-sm ${
+                    t.priority === 1 ? "bg-danger" : t.priority === 2 ? "bg-signal" : "bg-rule"
+                  }`}
+                />
+                <span className="flex-1 truncate text-[0.93rem] font-semibold">
+                  {t.title}
                 </span>
               </li>
             ))}
@@ -166,7 +205,7 @@ export default async function HomePage() {
       </section>
 
       <p className="pt-1 text-center text-[0.74rem] leading-relaxed text-ink-faint">
-        שלבים 0–1 הושלמו: התחברות, משק בית, קניות ומלאי מסונכרנים.
+        שלבים 0–3 הושלמו: משק בית, קניות ומלאי, יומן ותורים, ומשימות.
       </p>
     </>
   );

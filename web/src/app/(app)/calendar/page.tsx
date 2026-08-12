@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
-import type { CalendarEvent } from "@/lib/types";
+import type { CalendarEvent, Task } from "@/lib/types";
 import CalendarBoard from "./CalendarBoard";
 
 export default async function CalendarPage() {
@@ -29,11 +29,22 @@ export default async function CalendarPage() {
     .order("starts_at")
     .returns<CalendarEvent[]>();
 
+  // T9: a task with a deadline belongs on the calendar too, but it is not an
+  // event — it keeps its own row, its own assignee and its own completion.
+  const { data: tasks } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("household_id", session.household.id)
+    .not("due_at", "is", null)
+    .in("status", ["open", "in_progress"])
+    .returns<Task[]>();
+
   return (
     <CalendarBoard
       members={session.members}
       currentMemberId={session.member.id}
       initialEvents={data ?? []}
+      tasks={tasks ?? []}
       timeZone={session.household.timezone || "Asia/Jerusalem"}
     />
   );

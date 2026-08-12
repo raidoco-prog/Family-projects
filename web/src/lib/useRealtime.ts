@@ -18,7 +18,7 @@ type Change<T> =
  * change would fight the optimistic updates.
  */
 export function useRealtimeRows<T extends Row>(
-  table: "shopping_items" | "inventory_items",
+  table: "shopping_items" | "inventory_items" | "tasks",
   householdId: string,
   onChange: (change: Change<T>) => void,
 ) {

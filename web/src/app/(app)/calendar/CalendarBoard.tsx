@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import MemberAvatar from "@/components/MemberAvatar";
-import type { CalendarEvent, Member, Occurrence } from "@/lib/types";
+import type { CalendarEvent, Member, Occurrence, Task } from "@/lib/types";
 import {
   DOW_SHORT,
   MONTHS,
@@ -12,6 +12,7 @@ import {
   appointmentOf,
   expandEvents,
   isoDay,
+  zonedDate,
   nowIn,
   relDay,
   reminderPlan,
@@ -34,11 +35,13 @@ export default function CalendarBoard({
   members,
   currentMemberId,
   initialEvents,
+  tasks,
   timeZone,
 }: {
   members: Member[];
   currentMemberId: string;
   initialEvents: CalendarEvent[];
+  tasks: Task[];
   timeZone: string;
 }) {
   const router = useRouter();
@@ -79,6 +82,19 @@ export default function CalendarBoard({
   const dayOccurrences = useMemo(
     () => monthOccurrences.filter((o) => sameDay(o.start, selected)),
     [monthOccurrences, selected],
+  );
+
+  const datedTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.due_at)
+        .map((t) => ({ task: t, due: zonedDate(t.due_at as string, timeZone) })),
+    [tasks, timeZone],
+  );
+
+  const dayTasks = useMemo(
+    () => datedTasks.filter((t) => sameDay(t.due, selected)),
+    [datedTasks, selected],
   );
 
   function firstParticipantColor(o: Occurrence): string {
@@ -160,7 +176,8 @@ export default function CalendarBoard({
 
         <div className="grid grid-cols-7 gap-0.5">
           {Array.from({ length: 42 }, (_, i) => addDays(gridStart, i)).map((day) => {
-            const dots = monthOccurrences.filter((o) => sameDay(o.start, day)).slice(0, 4);
+            const dots = monthOccurrences.filter((o) => sameDay(o.start, day)).slice(0, 3);
+            const taskDot = datedTasks.some((t) => sameDay(t.due, day));
             const outside = day.getMonth() !== month.getMonth();
             const isToday = sameDay(day, today);
             const isSelected = sameDay(day, selected);
@@ -187,6 +204,12 @@ export default function CalendarBoard({
                       style={{ background: firstParticipantColor(o) }}
                     />
                   ))}
+                  {taskDot ? (
+                    <span
+                      aria-hidden="true"
+                      className="size-[5px] rounded-full border border-ink-faint"
+                    />
+                  ) : null}
                 </span>
               </button>
             );
@@ -228,6 +251,43 @@ export default function CalendarBoard({
           </div>
         )}
       </section>
+
+      {dayTasks.length ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-[0.74rem] font-bold uppercase tracking-[0.11em] text-ink-faint">
+            משימות ליום זה
+          </h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-2xl border border-rule bg-surface shadow-[var(--shadow)]">
+            {dayTasks.map(({ task, due }) => {
+              const assignee = task.assignee_id ? memberById.get(task.assignee_id) : null;
+              return (
+                <li key={task.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                  <span
+                    aria-hidden="true"
+                    className={`h-6 w-[3px] shrink-0 rounded-sm ${
+                      task.priority === 1
+                        ? "bg-danger"
+                        : task.priority === 2
+                          ? "bg-signal"
+                          : "bg-rule"
+                    }`}
+                  />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[0.93rem] font-semibold">{task.title}</span>
+                    <span className="text-[0.78rem] text-ink-soft tabular-nums">
+                      עד {timeStr(due)}
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-sunk px-2 py-0.5 text-[0.66rem] font-bold text-ink-soft">
+                    משימה
+                  </span>
+                  {assignee ? <MemberAvatar member={assignee} size="xs" /> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {/* ---------------- coming up ---------------- */}
       {upcoming.length ? (

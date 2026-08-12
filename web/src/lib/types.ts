@@ -102,6 +102,26 @@ export interface Occurrence {
   repeated: boolean;
 }
 
+export type TaskStatus = "open" | "in_progress" | "done" | "cancelled";
+
+export interface Task {
+  id: string;
+  household_id: string;
+  title: string;
+  notes: string | null;
+  assignee_id: string | null;
+  created_by: string | null;
+  due_at: string | null;
+  /** 1 = highest, 3 = lowest. */
+  priority: number;
+  status: TaskStatus;
+  rrule: string | null;
+  points: number;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_at: string;
+}
+
 export type ShoppingSource = "manual" | "auto_low_stock";
 
 export interface ShoppingItem {
