@@ -39,6 +39,69 @@ export interface HouseholdInvite {
   created_at: string;
 }
 
+export type EventKind =
+  | "general"
+  | "appointment"
+  | "birthday"
+  | "holiday"
+  | "school"
+  | "reminder";
+
+export type ReminderKind = "lead_24h" | "lead_1h" | "day_of_1030";
+
+export interface Appointment {
+  event_id: string;
+  patient_id: string;
+  doctor_name: string | null;
+  specialty: string | null;
+  clinic: string | null;
+  hmo: string | null;
+  phone: string | null;
+  referral_needed: boolean;
+  referral_number: string | null;
+  prep_notes: string | null;
+  follow_up_after: string | null;
+}
+
+export interface EventReminder {
+  id: string;
+  event_id: string;
+  member_id: string;
+  kind: ReminderKind;
+  fire_at: string;
+  sent_at: string | null;
+}
+
+export interface CalendarEvent {
+  id: string;
+  household_id: string;
+  kind: EventKind;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  all_day: boolean;
+  rrule: string | null;
+  color: string | null;
+  reminders_on: boolean;
+  birthday_for: string | null;
+  created_by: string | null;
+  created_at: string;
+  event_participants: { member_id: string }[];
+  appointments: Appointment | Appointment[] | null;
+  event_reminders: EventReminder[];
+}
+
+/** One dated instance of an event — a recurring event yields many. */
+export interface Occurrence {
+  event: CalendarEvent;
+  /** Local start of this instance. */
+  start: Date;
+  /** True when produced by expanding an rrule rather than the base row. */
+  repeated: boolean;
+}
+
 export type ShoppingSource = "manual" | "auto_low_stock";
 
 export interface ShoppingItem {

@@ -66,6 +66,8 @@ create table events (
   rrule         text,                    -- חזרתיות בתקן RFC 5545, למשל FREQ=WEEKLY;BYDAY=SU,TU
   color         text,
   reminders_on  boolean not null default true,   -- כיבוי תזכורות לאירוע בודד
+  -- מסומן כשהאירוע הוא יום הולדת שנגזר משורת בן משפחה, ולא הוזן ידנית.
+  birthday_for  uuid unique references members(id) on delete cascade,
   created_by    uuid references members(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
@@ -97,6 +99,74 @@ create table appointments (
 );
 
 create index on appointments (patient_id);
+
+-- ------------------------------------------------------------
+-- 2א. ימי הולדת נגזרים
+--
+-- יום הולדת אינו נשמר כאירוע שמישהו הזין, אלא נגזר מתאריך הלידה
+-- של בן המשפחה. הסיבה שהוא בכל זאת שורה ב-events ולא חישוב בתצוגה:
+-- התזכורות נתלות ב-event_id, ולכן אירוע שלא קיים בטבלה לא יכול
+-- לייצר התראה.
+-- ------------------------------------------------------------
+
+create or replace function sync_birthday_event()
+returns trigger
+language plpgsql
+as $$
+declare
+  tz        text;
+  v_next    date;
+  v_starts  timestamptz;
+  v_event   uuid;
+begin
+  -- אין תאריך לידה ⟵ אין אירוע. גם מוחק אחד קיים אם התאריך נמחק.
+  if new.birth_date is null then
+    delete from events where birthday_for = new.id;
+    return new;
+  end if;
+
+  select coalesce(h.timezone, 'Asia/Jerusalem') into tz
+    from households h where h.id = new.household_id;
+
+  -- המופע הקרוב: השנה, ואם כבר עבר — בשנה הבאה.
+  v_next := make_date(
+    extract(year from (now() at time zone tz))::int,
+    extract(month from new.birth_date)::int,
+    extract(day from new.birth_date)::int
+  );
+  if v_next < (now() at time zone tz)::date then
+    v_next := v_next + interval '1 year';
+  end if;
+
+  v_starts := v_next::timestamp at time zone tz;
+
+  select id into v_event from events where birthday_for = new.id;
+
+  if v_event is null then
+    insert into events
+      (household_id, kind, title, starts_at, all_day, rrule, birthday_for)
+    values
+      (new.household_id, 'birthday', 'יום הולדת ' || new.display_name,
+       v_starts, true, 'FREQ=YEARLY', new.id)
+    returning id into v_event;
+
+    insert into event_participants (event_id, member_id)
+         values (v_event, new.id)
+    on conflict do nothing;
+  else
+    update events
+       set title     = 'יום הולדת ' || new.display_name,
+           starts_at = v_starts
+     where id = v_event;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger members_birthday_sync
+  after insert or update of birth_date, display_name on members
+  for each row execute function sync_birthday_event();
 
 -- ------------------------------------------------------------
 -- 2ב. תזכורות לאירועים
