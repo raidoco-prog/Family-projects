@@ -189,9 +189,12 @@ create table event_reminders (
   event_id   uuid not null references events(id) on delete cascade,
   member_id  uuid not null references members(id) on delete cascade,
   kind       reminder_kind not null,
+  -- המופע שהתזכורת שייכת אליו. לאירוע חד-פעמי זהה ל-starts_at; לאירוע
+  -- חוזר זה מה שמאפשר שורה נפרדת לכל מופע, ולא רק לראשון.
+  occurrence_at timestamptz not null,
   fire_at    timestamptz not null,
   sent_at    timestamptz,
-  unique (event_id, member_id, kind)
+  unique (event_id, member_id, kind, occurrence_at)
 );
 
 -- האינדקס שהקרון סורק: רק תזכורות שטרם נשלחו.
@@ -213,6 +216,8 @@ begin
   end if;
 
   -- תזכורות שכבר נשלחו נשארות כרשומת היסטוריה; רק הממתינות נבנות מחדש.
+  -- כולל מופעים עתידיים שהקרון חימר, כי שינוי במועד או במשתתפים משנה
+  -- גם אותם — הקרון ייצור אותם מחדש בהרצה הבאה.
   delete from event_reminders where event_id = p_event_id and sent_at is null;
 
   if not ev.reminders_on then
@@ -222,8 +227,8 @@ begin
   select timezone into tz from households where id = ev.household_id;
   tz := coalesce(tz, 'Asia/Jerusalem');
 
-  insert into event_reminders (event_id, member_id, kind, fire_at)
-  select ev.id, r.member_id, p.kind, p.fire_at
+  insert into event_reminders (event_id, member_id, kind, occurrence_at, fire_at)
+  select ev.id, r.member_id, p.kind, ev.starts_at, p.fire_at
   from (
     -- הורים תמיד; ילדים רק אם האירוע נוגע להם
     select m.id as member_id
@@ -249,7 +254,7 @@ begin
              else v.kind in ('lead_24h', 'lead_1h')
            end
   ) p
-  on conflict (event_id, member_id, kind) do update
+  on conflict (event_id, member_id, kind, occurrence_at) do update
     set fire_at = excluded.fire_at;
 end;
 $$;
@@ -523,6 +528,131 @@ create policy reminder_access on event_reminders
       select id from events where household_id in (select current_household_ids())
     )
   );
+
+-- ------------------------------------------------------------
+-- 5ב. התראות
+--
+-- שלוש טבלאות, ותפקיד שונה לכל אחת:
+--
+--   push_subscriptions       — לאיזה מכשיר לשלוח. באייפון נרשם רק אחרי
+--                              "הוסף למסך הבית", ולכן לאדם אחד יכולים
+--                              להיות כמה מכשירים או אף אחד.
+--   notification_preferences — מה כל אחד מסכים לקבל, ומתי לא להפריע.
+--   notifications            — תור השליחה. מקורות שונים כותבים לתוכו
+--                              (תזכורות יומן, משימות, סיכום בוקר), והקרון
+--                              קורא ממנו מקור אחד.
+-- ------------------------------------------------------------
+
+create table push_subscriptions (
+  id          uuid primary key default gen_random_uuid(),
+  member_id   uuid not null references members(id) on delete cascade,
+  endpoint    text not null unique,
+  p256dh      text not null,
+  auth        text not null,
+  user_agent  text,
+  created_at  timestamptz not null default now(),
+  -- מתעדכן כשדחיפה נכשלת, כדי לזהות מנויים מתים
+  failed_at   timestamptz
+);
+
+create index on push_subscriptions (member_id);
+
+create type notification_kind as enum (
+  'appointment', 'event', 'birthday', 'task', 'shopping', 'digest'
+);
+
+create table notification_preferences (
+  member_id     uuid primary key references members(id) on delete cascade,
+  appointments  boolean not null default true,
+  events        boolean not null default true,
+  birthdays     boolean not null default true,
+  tasks         boolean not null default true,
+  shopping      boolean not null default false,  -- הכי רועש, כבוי כברירת מחדל
+  digest        boolean not null default true,
+  digest_at     time not null default '07:30',
+  quiet_from    time not null default '22:00',
+  quiet_to      time not null default '07:00',
+  created_at    timestamptz not null default now()
+);
+
+-- לכל בן משפחה יש העדפות מרגע שנוצר, כדי שהקרון לא יצטרך לטפל בחסר.
+create or replace function ensure_notification_preferences()
+returns trigger language plpgsql as $$
+begin
+  insert into notification_preferences (member_id) values (new.id)
+  on conflict (member_id) do nothing;
+  return new;
+end;
+$$;
+
+create trigger members_default_preferences
+  after insert on members
+  for each row execute function ensure_notification_preferences();
+
+create table notifications (
+  id          uuid primary key default gen_random_uuid(),
+  member_id   uuid not null references members(id) on delete cascade,
+  kind        notification_kind not null,
+  title       text not null,
+  body        text,
+  url         text,
+  fire_at     timestamptz not null,
+  sent_at     timestamptz,
+  -- מזהה לוגי של ההתראה. מונע כפילות כשהקרון רץ שוב על אותו חלון,
+  -- וזה קורה בכל הרצה.
+  dedupe_key  text not null,
+  created_at  timestamptz not null default now(),
+  unique (member_id, dedupe_key)
+);
+
+create index notifications_pending
+  on notifications (fire_at)
+  where sent_at is null;
+
+alter table push_subscriptions       enable row level security;
+alter table notification_preferences enable row level security;
+alter table notifications            enable row level security;
+
+-- מנוי לדחיפה שייך למכשיר של אדם אחד, ולא לכל משק הבית.
+create policy push_own on push_subscriptions
+  for all using (
+    member_id in (select id from members where user_id = auth.uid())
+  )
+  with check (
+    member_id in (select id from members where user_id = auth.uid())
+  );
+
+-- העדפות: כל אחד עורך את שלו, אך הורה רואה את של כולם כדי לעזור לילד.
+create policy prefs_read on notification_preferences
+  for select using (
+    member_id in (select id from members where household_id in (select current_household_ids()))
+  );
+
+create policy prefs_write on notification_preferences
+  for update using (
+    member_id in (select id from members where user_id = auth.uid())
+    or exists (
+      select 1 from members me
+       where me.user_id = auth.uid()
+         and me.role = 'parent'
+         and me.household_id = (select household_id from members m2 where m2.id = member_id)
+    )
+  );
+
+create policy notifications_own on notifications
+  for select using (
+    member_id in (select id from members where user_id = auth.uid())
+  );
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    grant select, insert, delete on push_subscriptions to authenticated;
+    grant select, update on notification_preferences to authenticated;
+    grant select on notifications to authenticated;
+  end if;
+end
+$$;
 
 -- ------------------------------------------------------------
 -- 6ב. הצטרפות למשק בית

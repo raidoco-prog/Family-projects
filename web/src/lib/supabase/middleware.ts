@@ -2,8 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "./config";
 
-/** Paths reachable without a session. */
-const PUBLIC_PATHS = ["/login", "/auth", "/join", "/setup"];
+/**
+ * Paths reachable without a session.
+ *
+ * /api/cron is here because pg_cron has no cookie to present — it
+ * authenticates with a bearer secret the route checks itself. Without this
+ * the cron would be redirected to the login page and never run.
+ */
+const PUBLIC_PATHS = ["/login", "/auth", "/join", "/setup", "/api/cron"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(
