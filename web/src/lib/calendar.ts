@@ -40,6 +40,45 @@ export function zonedDate(instant: Date | string, timeZone: string): Date {
   return new Date(get("year"), get("month") - 1, get("day"), hour, get("minute"), 0, 0);
 }
 
+/** Milliseconds the given zone is ahead of UTC at that instant. */
+function zoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const asUtc = Date.UTC(g("year"), g("month") - 1, g("day"), g("hour") % 24, g("minute"), g("second"));
+  return asUtc - instant.getTime();
+}
+
+/**
+ * Turns a wall-clock string the user typed ("2026-08-12T16:30") into the
+ * instant it denotes in the household's timezone.
+ *
+ * `new Date(local)` would resolve it against whatever zone the *server*
+ * runs in — UTC in production — so someone entering 16:30 in Israel would
+ * get an event three hours late. Two passes so the offset is taken from
+ * the resulting instant, which matters either side of a DST boundary.
+ */
+export function zonedTimeToInstant(localISO: string, timeZone: string): Date {
+  // Date.parse is lenient in V8 — "not-a-date:00Z" comes back as the year
+  // 2000 rather than NaN — so the shape is checked before parsing.
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(localISO)) return new Date(NaN);
+
+  const naive = Date.parse(`${localISO}:00Z`);
+  if (Number.isNaN(naive)) return new Date(NaN);
+  let instant = naive - zoneOffsetMs(new Date(naive), timeZone);
+  instant = naive - zoneOffsetMs(new Date(instant), timeZone);
+  return new Date(instant);
+}
+
 /** "Now", as a civil date in the household's timezone. */
 export function nowIn(timeZone: string): Date {
   return zonedDate(new Date(), timeZone);

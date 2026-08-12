@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/session";
+import { zonedTimeToInstant } from "@/lib/calendar";
 import type { EventKind } from "@/lib/types";
 
 export interface ActionResult {
@@ -49,9 +50,12 @@ export async function createEvent(input: NewEventInput): Promise<ActionResult> {
   const session = await getSession();
   if (!session) return { error: EXPIRED };
 
-  // Built from local parts so the stored instant matches what was typed.
-  const startsAt = new Date(
-    `${input.date}T${input.allDay ? "00:00" : input.time || "09:00"}:00`,
+  // Resolved against the household's timezone, not the server's. Production
+  // runs in UTC, so parsing the typed time locally would store every event
+  // three hours late for an Israeli household.
+  const startsAt = zonedTimeToInstant(
+    `${input.date}T${input.allDay ? "00:00" : input.time || "09:00"}`,
+    session.household.timezone || "Asia/Jerusalem",
   );
   if (Number.isNaN(startsAt.getTime())) return { error: "תאריך או שעה לא תקינים." };
 

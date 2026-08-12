@@ -6,6 +6,10 @@
 --  כדי שיהיה מה לבדוק בלי להזין הכול ביד.
 --
 --  הוא מזהה את משק הבית לבד, בהנחה שיש בדיוק אחד.
+--
+--  השעות מקובעות ל-Asia/Jerusalem במפורש: חותמת נאיבית שנכנסת
+--  לעמודת timestamptz מתפרשת לפי אזור הזמן של החיבור, וב-SQL Editor
+--  של Supabase זה UTC — מה שהיה מזיז כל שעה בשלוש שעות.
 -- ============================================================
 
 do $$
@@ -61,7 +65,7 @@ begin
   insert into events (household_id, kind, title, location, starts_at, created_by)
        values (hh, 'appointment', 'רופא שיניים — שני',
                'מרפאת שיניים, רחוב הרצל 12',
-               (current_date + 1)::timestamp + time '16:30', m_first)
+               ((current_date + 1)::timestamp + time '16:30') at time zone 'Asia/Jerusalem', m_first)
     returning id into ev;
   insert into event_participants (event_id, member_id) values (ev, m_shani);
   insert into appointments
@@ -73,14 +77,14 @@ begin
   -- ---------- אירוע שבועי חוזר ----------
   insert into events (household_id, kind, title, location, starts_at, rrule, created_by)
        values (hh, 'general', 'אימון כדורסל — יונתן', 'אולם הספורט',
-               (current_date + 2)::timestamp + time '17:00', 'FREQ=WEEKLY', m_first)
+               ((current_date + 2)::timestamp + time '17:00') at time zone 'Asia/Jerusalem', 'FREQ=WEEKLY', m_first)
     returning id into ev;
   insert into event_participants (event_id, member_id) values (ev, m_yonatan);
 
   -- ---------- אסיפת הורים ----------
   insert into events (household_id, kind, title, location, starts_at, created_by)
        values (hh, 'school', 'אסיפת הורים', 'בית הספר',
-               (current_date + 4)::timestamp + time '19:00', m_first)
+               ((current_date + 4)::timestamp + time '19:00') at time zone 'Asia/Jerusalem', m_first)
     returning id into ev;
   insert into event_participants (event_id, member_id) values (ev, m_shani);
 
