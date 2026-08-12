@@ -21,6 +21,10 @@ Next.js 15 (App Router) + TypeScript + Tailwind v4, מעל Supabase.
 1. פתחו פרויקט ב-[supabase.com](https://supabase.com), אזור `eu-central-1`.
 2. הריצו את [`../docs/schema.sql`](../docs/schema.sql) ב-SQL Editor.
    זה יוצר את הטבלאות, הטריגרים, מדיניות ההרשאות ושתי פונקציות ההצטרפות.
+   **מריצים גרסה מעודכנת על פרויקט קיים?** הריצו קודם
+   [`../docs/reset.sql`](../docs/reset.sql) — הסכימה משתמשת ב-`create table`
+   ולכן הרצה חוזרת על טבלאות קיימות תיכשל. הוא מוחק את כל נתוני האפליקציה,
+   אך לא את חשבונות המשתמשים.
 3. Authentication → Providers → הפעילו **Google**, ובנוסף **Email** עבור
    קישורי כניסה.
 4. Authentication → URL Configuration → הוסיפו ל-Redirect URLs את
@@ -50,6 +54,13 @@ cp .env.example .env.local
 npm install
 npm run dev
 ```
+
+### 4. נתוני בדיקה (אופציונלי)
+
+אחרי שנכנסתם והקמתם משק בית, הריצו את [`../docs/seed.sql`](../docs/seed.sql)
+ב-SQL Editor. הוא מוסיף את שאר בני המשפחה, שמונה פריטי מלאי ושלושה אירועים,
+כך שיש מה לבדוק בלי להזין הכול ביד. שלושה פריטים נזרעים מתחת לסף בכוונה,
+כדי שהטריגר ייצור להם פריטי קניות מיד.
 
 ---
 

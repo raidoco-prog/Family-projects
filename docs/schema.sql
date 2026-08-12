@@ -270,6 +270,32 @@ begin
 end;
 $$;
 
+-- הרכב הנמענים תלוי בהרכב משק הבית, ולא רק באירוע עצמו. בלי הטריגר
+-- הזה הורה שהצטרף אחרי שנוצרו אירועים לא היה מקבל עליהם תזכורת לעולם,
+-- כי השורות חושבו פעם אחת ברגע היצירה.
+--
+-- שם הטריגר מתחיל ב-m כדי שירוץ אחרי members_birthday_sync (טריגרים
+-- באותו תזמון רצים לפי סדר אלפביתי), ולכן אירוע יום ההולדת של החבר
+-- החדש כבר קיים כשהתזכורות נבנות.
+create or replace function trg_rebuild_reminders_member()
+returns trigger
+language plpgsql
+as $$
+declare
+  hh uuid := coalesce(new.household_id, old.household_id);
+  e  uuid;
+begin
+  for e in select id from events where household_id = hh loop
+    perform rebuild_event_reminders(e);
+  end loop;
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger members_reminders_sync
+  after insert or delete or update of role, household_id on members
+  for each row execute function trg_rebuild_reminders_member();
+
 create trigger events_reminders_sync
   after insert or update of starts_at, kind, reminders_on on events
   for each row execute function trg_rebuild_reminders_event();
