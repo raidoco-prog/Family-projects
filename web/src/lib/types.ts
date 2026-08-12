@@ -39,6 +39,41 @@ export interface HouseholdInvite {
   created_at: string;
 }
 
+export type ShoppingSource = "manual" | "auto_low_stock";
+
+export interface ShoppingItem {
+  id: string;
+  household_id: string;
+  name: string;
+  quantity: number;
+  unit: string | null;
+  category: string | null;
+  store: string | null;
+  is_checked: boolean;
+  source: ShoppingSource;
+  inventory_item_id: string | null;
+  added_by: string | null;
+  checked_by: string | null;
+  checked_at: string | null;
+  created_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  household_id: string;
+  name: string;
+  category: string | null;
+  storage_location: string | null;
+  unit: string;
+  quantity: number;
+  min_quantity: number;
+  target_quantity: number | null;
+  auto_restock: boolean;
+  barcode: string | null;
+  expires_on: string | null;
+  updated_at: string;
+}
+
 /** A member row joined with the household it belongs to. */
 export interface Session {
   member: Member;

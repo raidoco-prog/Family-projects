@@ -1,9 +1,24 @@
-import Placeholder from "@/components/Placeholder";
+import { getSession } from "@/lib/session";
+import { createClient } from "@/lib/supabase/server";
+import type { InventoryItem } from "@/lib/types";
+import InventoryBoard from "./InventoryBoard";
 
-export default function Page() {
+export default async function InventoryPage() {
+  const session = await getSession();
+  if (!session) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("inventory_items")
+    .select("*")
+    .eq("household_id", session.household.id)
+    .order("name")
+    .returns<InventoryItem[]>();
+
   return (
-    <Placeholder title="מלאי" phase="שלב 1">
-      מלאי הבית עם ספי מינימום שמזינים את רשימת הקניות.
-    </Placeholder>
+    <InventoryBoard
+      householdId={session.household.id}
+      initialItems={data ?? []}
+    />
   );
 }
