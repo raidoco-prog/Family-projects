@@ -15,13 +15,33 @@ import { zonedDate } from "@/lib/calendar";
 /** How far ahead recurring occurrences are materialised. */
 const HORIZON_DAYS = 60;
 
+/**
+ * How long a notification stays worth delivering.
+ *
+ * This is not housekeeping — it is what keeps the outbox from starving.
+ * Delivery is push-only by choice, so a member who never ran "Add to Home
+ * Screen" has no subscription and every notification addressed to them stays
+ * queued for ever. Those rows accumulate, and since sendPending reads a
+ * bounded page they would eventually crowd out today's real reminders.
+ *
+ * A "one hour before" reminder delivered a day late is noise anyway, so
+ * anything past the window stops being retried. It is not deleted and not
+ * marked sent — R9 wants a missed reminder to remain findable.
+ */
+const STALE_HOURS = 24;
+
 export interface CronReport {
   occurrencesMaterialised: number;
   queued: number;
   sent: number;
   skippedQuiet: number;
   skippedPreference: number;
+  /** Queued for a member with no device — the expected push-only steady state. */
+  noSubscription: number;
+  /** A push was attempted and the service rejected it. */
   failed: number;
+  /** Too old to be worth sending; left in place, unsent, as a record. */
+  expired: number;
   prunedSubscriptions: number;
 }
 
@@ -374,11 +394,25 @@ export async function sendPending(
   timeZone: string,
   report: CronReport,
 ): Promise<void> {
+  // Stop retrying what is too old to be useful. The rows are *not* marked
+  // sent — R9 wants a missed reminder to stay findable, and writing sent_at
+  // would claim it was delivered. They keep sent_at null, which is the honest
+  // record, and simply drop out of the window the sender reads.
+  const stale = new Date(now.getTime() - STALE_HOURS * 3_600_000).toISOString();
+  const { count: expiredCount } = await db
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .is("sent_at", null)
+    .lt("fire_at", stale);
+  report.expired = expiredCount ?? 0;
+
   const { data: pending } = await db
     .from("notifications")
     .select("id,member_id,kind,title,body,url,fire_at")
     .is("sent_at", null)
+    .gte("fire_at", stale)
     .lte("fire_at", now.toISOString())
+    .order("fire_at", { ascending: true })
     .limit(200);
 
   if (!pending?.length) return;
@@ -421,8 +455,11 @@ export async function sendPending(
 
     const targets = subsBy.get(n.member_id) ?? [];
     if (!targets.length) {
-      report.failed++;
-      continue; // nobody subscribed yet; leave it queued
+      // Not a failure: they simply have no device registered. Left queued so
+      // it still arrives if they install within the window; STALE_HOURS
+      // clears it if they do not.
+      report.noSubscription++;
+      continue;
     }
 
     let delivered = false;

@@ -7,7 +7,8 @@ type Row = { id: string };
 type Change<T> =
   | { type: "INSERT"; row: T }
   | { type: "UPDATE"; row: T }
-  | { type: "DELETE"; id: string };
+  | { type: "DELETE"; id: string }
+  | { type: "RESET"; rows: T[] };
 
 /**
  * Keeps a local list in sync with a table, for one household.
@@ -25,9 +26,25 @@ export function useRealtimeRows<T extends Row>(
   // Kept in a ref so re-renders don't tear down and rebuild the channel.
   const handler = useRef(onChange);
   handler.current = onChange;
+  // The first SUBSCRIBED is the initial connect, where the server already
+  // sent the rows. Every later one is a reconnect, and needs a resync.
+  const connected = useRef(false);
 
   useEffect(() => {
     const supabase = createClient();
+
+    // Realtime does not replay what happened while the socket was down, so a
+    // reconnect leaves the list silently wrong — and on a phone, dropping the
+    // connection is the normal case, not the exception. Re-reading the table
+    // on reconnect is what stops a stale list from looking like a correct one.
+    const resync = async () => {
+      const { data } = await supabase
+        .from(table)
+        .select("*")
+        .eq("household_id", householdId);
+      if (data) handler.current({ type: "RESET", rows: data as T[] });
+    };
+
     const channel = supabase
       .channel(`${table}:${householdId}`)
       .on(
@@ -50,9 +67,14 @@ export function useRealtimeRows<T extends Row>(
           });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") return;
+        if (connected.current) void resync();
+        connected.current = true;
+      });
 
     return () => {
+      connected.current = false;
       void supabase.removeChannel(channel);
     };
   }, [table, householdId]);
@@ -66,7 +88,9 @@ export function applyChange<T extends Row>(
 ): T[] {
   let next: T[];
 
-  if (change.type === "DELETE") {
+  if (change.type === "RESET") {
+    next = change.rows;
+  } else if (change.type === "DELETE") {
     next = list.filter((r) => r.id !== change.id);
   } else if (list.some((r) => r.id === change.row.id)) {
     next = list.map((r) => (r.id === change.row.id ? change.row : r));

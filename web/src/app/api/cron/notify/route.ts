@@ -41,7 +41,9 @@ export async function POST(request: NextRequest) {
     sent: 0,
     skippedQuiet: 0,
     skippedPreference: 0,
+    noSubscription: 0,
     failed: 0,
+    expired: 0,
     prunedSubscriptions: 0,
   };
 

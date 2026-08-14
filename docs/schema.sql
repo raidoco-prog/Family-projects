@@ -576,8 +576,16 @@ create table notification_preferences (
 );
 
 -- לכל בן משפחה יש העדפות מרגע שנוצר, כדי שהקרון לא יצטרך לטפל בחסר.
+--
+-- security definer בכוונה: הטריגר רץ בהרשאות מי שהוסיף את בן המשפחה,
+-- ולטבלה אין מדיניות INSERT — היא נכתבת רק מכאן. בלי זה הוספת בן משפחה
+-- דרך מסך המשפחה נכשלת ב-"new row violates row-level security policy".
 create or replace function ensure_notification_preferences()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
   insert into notification_preferences (member_id) values (new.id)
   on conflict (member_id) do nothing;
@@ -629,7 +637,17 @@ create policy prefs_read on notification_preferences
   );
 
 create policy prefs_write on notification_preferences
-  for update using (
+  for update
+  using (
+    member_id in (select id from members where user_id = auth.uid())
+    or exists (
+      select 1 from members me
+       where me.user_id = auth.uid()
+         and me.role = 'parent'
+         and me.household_id = (select household_id from members m2 where m2.id = member_id)
+    )
+  )
+  with check (
     member_id in (select id from members where user_id = auth.uid())
     or exists (
       select 1 from members me
