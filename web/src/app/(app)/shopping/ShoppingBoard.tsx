@@ -1,9 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import MemberAvatar from "@/components/MemberAvatar";
 import Check from "@/components/Check";
 import { applyChange, useRealtimeRows } from "@/lib/useRealtime";
+import {
+  enqueue,
+  flushQueue,
+  readQueue,
+  readSnapshot,
+  useOnline,
+  writeSnapshot,
+} from "@/lib/offline";
 import type { Member, ShoppingItem } from "@/lib/types";
 import {
   addShoppingItem,
@@ -28,6 +36,8 @@ export default function ShoppingBoard({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const online = useOnline();
+  const [queued, setQueued] = useState(0);
 
   // Rows arrive here that nobody on this device asked for: the low-stock
   // trigger inserts them, and another phone in the supermarket checks them off.
@@ -37,6 +47,79 @@ export default function ShoppingBoard({
     useCallback((change) => {
       setItems((prev) => applyChange(prev, change, newestFirst));
     }, []),
+  );
+
+  /* ---- offline (N6) ---------------------------------------------- */
+
+  // A cold open with no reception renders whatever HTML the service worker
+  // cached, which may be days old. The snapshot is from the last time the
+  // screen was actually looked at, so offline it wins.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    setQueued(readQueue(householdId).length);
+    if (window.navigator.onLine) return;
+    const snapshot = readSnapshot(householdId);
+    if (snapshot?.length) setItems(snapshot);
+  }, [householdId]);
+
+  // Written on every change, so what survives a reload is what the user last
+  // saw — including the items they added with no reception.
+  useEffect(() => {
+    writeSnapshot(householdId, items);
+  }, [householdId, items]);
+
+  // Back in range: replay what was done offline, in order.
+  useEffect(() => {
+    if (!online || readQueue(householdId).length === 0) return;
+    let cancelled = false;
+
+    void (async () => {
+      const res = await flushQueue(householdId, {
+        add: addShoppingItem,
+        check: setShoppingChecked,
+        remove: deleteShoppingItem,
+        clear: clearCheckedItems,
+      });
+      if (cancelled) return;
+      setQueued(readQueue(householdId).length);
+      if (res.failed) setError(res.failed);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [online, householdId]);
+
+  /**
+   * Runs a change against the server, or records it for later.
+   *
+   * Offline the server action is not attempted at all — it would hang on a
+   * fetch that cannot succeed and leave the row looking unsaved. The optimistic
+   * update has already happened either way, so the screen looks the same;
+   * `rollback` only runs when the server was reachable and said no.
+   */
+  const commit = useCallback(
+    (
+      op: Parameters<typeof enqueue>[1],
+      run: () => Promise<{ error?: string }>,
+      rollback: () => void,
+    ) => {
+      if (!window.navigator.onLine) {
+        enqueue(householdId, op);
+        setQueued((n) => n + 1);
+        return;
+      }
+      startTransition(async () => {
+        const res = await run();
+        if (res.error) {
+          rollback();
+          setError(res.error);
+        }
+      });
+    },
+    [householdId],
   );
 
   const memberById = useMemo(
@@ -84,12 +167,24 @@ export default function ShoppingBoard({
     setDraft("");
     setError(null);
 
+    if (!window.navigator.onLine) {
+      enqueue(householdId, { op: "add", tempId: temp.id, name });
+      setQueued((n) => n + 1);
+      return;
+    }
+
     startTransition(async () => {
       const res = await addShoppingItem(name);
-      if (res.error) {
+      if (res.error || !res.id) {
         setItems((prev) => prev.filter((i) => i.id !== temp.id));
-        setError(res.error);
+        setError(res.error ?? "ההוספה נכשלה. נסו שוב.");
+        return;
       }
+      // Adopt the real id. Without this the realtime INSERT that follows
+      // carries a different id, finds no match, and the item appears twice.
+      setItems((prev) =>
+        prev.map((i) => (i.id === temp.id ? { ...i, id: res.id! } : i)),
+      );
     });
   }
 
@@ -98,40 +193,34 @@ export default function ShoppingBoard({
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, is_checked: next } : i)),
     );
-    startTransition(async () => {
-      const res = await setShoppingChecked(item.id, next);
-      if (res.error) {
+    setError(null);
+    commit(
+      { op: "check", id: item.id, checked: next },
+      () => setShoppingChecked(item.id, next),
+      () =>
         setItems((prev) =>
           prev.map((i) =>
             i.id === item.id ? { ...i, is_checked: item.is_checked } : i,
           ),
-        );
-        setError(res.error);
-      }
-    });
+        ),
+    );
   }
 
   function remove(item: ShoppingItem) {
     setItems((prev) => prev.filter((i) => i.id !== item.id));
-    startTransition(async () => {
-      const res = await deleteShoppingItem(item.id);
-      if (res.error) {
-        setItems((prev) => [item, ...prev].sort(newestFirst));
-        setError(res.error);
-      }
-    });
+    setError(null);
+    commit(
+      { op: "delete", id: item.id },
+      () => deleteShoppingItem(item.id),
+      () => setItems((prev) => [item, ...prev].sort(newestFirst)),
+    );
   }
 
   function clearTrolley() {
     const snapshot = items;
     setItems((prev) => prev.filter((i) => !i.is_checked));
-    startTransition(async () => {
-      const res = await clearCheckedItems();
-      if (res.error) {
-        setItems(snapshot);
-        setError(res.error);
-      }
-    });
+    setError(null);
+    commit({ op: "clear" }, clearCheckedItems, () => setItems(snapshot));
   }
 
   function Row({ item }: { item: ShoppingItem }) {
@@ -206,6 +295,20 @@ export default function ShoppingBoard({
       {error ? (
         <p role="alert" className="text-sm font-semibold text-danger">
           {error}
+        </p>
+      ) : null}
+
+      {/* A list that silently stops saving is worse than one that says so. */}
+      {!online || queued > 0 ? (
+        <p
+          role="status"
+          className="rounded-xl border border-signal/35 bg-signal-soft px-3 py-2 text-[0.8rem] font-semibold text-signal"
+        >
+          {online
+            ? `מסנכרן ${queued} שינויים שנעשו ללא קליטה…`
+            : queued > 0
+              ? `אין קליטה. ${queued} שינויים ישמרו וישלחו כשהחיבור יחזור.`
+              : "אין קליטה. הרשימה זמינה, והשינויים ישלחו כשהחיבור יחזור."}
         </p>
       ) : null}
 

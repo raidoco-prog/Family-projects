@@ -7,9 +7,18 @@ export interface ActionResult {
   error?: string;
 }
 
+/**
+ * The id is returned because an item added offline carries a temporary one,
+ * and everything queued behind it — checking it off, deleting it — refers to
+ * that temporary id. The replay needs the real id to rewrite them.
+ */
+export interface AddResult extends ActionResult {
+  id?: string;
+}
+
 const EXPIRED = "פג תוקף החיבור. התחברו מחדש.";
 
-export async function addShoppingItem(name: string): Promise<ActionResult> {
+export async function addShoppingItem(name: string): Promise<AddResult> {
   const trimmed = name.trim();
   if (!trimmed) return { error: "צריך למלא שם פריט." };
 
@@ -17,17 +26,21 @@ export async function addShoppingItem(name: string): Promise<ActionResult> {
   if (!session) return { error: EXPIRED };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("shopping_items").insert({
-    household_id: session.household.id,
-    name: trimmed,
-    quantity: 1,
-    unit: "יח׳",
-    category: "אחר",
-    source: "manual",
-    added_by: session.member.id,
-  });
+  const { data, error } = await supabase
+    .from("shopping_items")
+    .insert({
+      household_id: session.household.id,
+      name: trimmed,
+      quantity: 1,
+      unit: "יח׳",
+      category: "אחר",
+      source: "manual",
+      added_by: session.member.id,
+    })
+    .select("id")
+    .single<{ id: string }>();
 
-  return error ? { error: "ההוספה נכשלה. נסו שוב." } : {};
+  return error ? { error: "ההוספה נכשלה. נסו שוב." } : { id: data?.id };
 }
 
 /**

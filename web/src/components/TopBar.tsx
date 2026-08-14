@@ -21,6 +21,22 @@ export default function TopBar({ session }: { session: Session }) {
           ))}
         </Link>
         <Link
+          href="/search"
+          aria-label="חיפוש"
+          className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-sunk"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="size-[18px] fill-none stroke-current stroke-[1.7]"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+        </Link>
+        <Link
           href="/settings"
           aria-label="הגדרות התראות"
           className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-sunk"

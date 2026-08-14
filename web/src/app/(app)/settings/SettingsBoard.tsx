@@ -266,6 +266,26 @@ export default function SettingsBoard({
         </>
       ) : null}
 
+      <section className="flex flex-col gap-2">
+        <h2 className="text-[0.74rem] font-bold uppercase tracking-[0.11em] text-ink-faint">
+          גיבוי
+        </h2>
+        <div className="flex flex-col gap-2.5 rounded-2xl border border-rule bg-surface p-3.5 shadow-[var(--shadow)]">
+          <p className="text-[0.82rem] leading-relaxed text-ink-soft">
+            הורדת כל נתוני הבית כקובץ אחד — יומן, תורים, משימות, קניות ומלאי.
+            שמרו אותו מדי פעם: בתוכנית החינמית של Supabase הגיבויים נשמרים
+            לזמן מוגבל.
+          </p>
+          <a
+            href="/api/backup"
+            download
+            className="grid h-10 place-items-center rounded-xl bg-accent-pastel text-sm font-bold text-accent"
+          >
+            הורדת גיבוי
+          </a>
+        </div>
+      </section>
+
       <p className="text-center text-[0.74rem] leading-relaxed text-ink-faint">
         התראה שנחסמה בשעות שקט תישלח כשהחלון נגמר, ולא תיעלם.
       </p>
