@@ -20,6 +20,15 @@ const REPEATS: { value: NewEventInput["repeat"]; label: string }[] = [
   { value: "yearly", label: "כל שנה" },
 ];
 
+/** Stored as a Postgres interval on appointments.follow_up_after. */
+const FOLLOW_UPS: { value: string; label: string }[] = [
+  { value: "", label: "לא נדרשת" },
+  { value: "1 month", label: "בעוד חודש" },
+  { value: "3 months", label: "בעוד שלושה חודשים" },
+  { value: "6 months", label: "בעוד חצי שנה" },
+  { value: "1 year", label: "בעוד שנה" },
+];
+
 const field =
   "h-10 rounded-xl border border-rule bg-ground px-3 text-sm placeholder:text-ink-faint";
 
@@ -41,6 +50,7 @@ export default function EventForm({
   const [participants, setParticipants] = useState<string[]>([currentMemberId]);
   const [patientId, setPatientId] = useState(members[0]?.id ?? "");
   const [remindersOn, setRemindersOn] = useState(true);
+  const [referralNeeded, setReferralNeeded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -74,6 +84,11 @@ export default function EventForm({
             hmo: String(formData.get("hmo") ?? ""),
             phone: String(formData.get("phone") ?? ""),
             prepNotes: String(formData.get("prep") ?? ""),
+            referralNeeded,
+            referralNumber: referralNeeded
+              ? String(formData.get("referral_number") ?? "")
+              : "",
+            followUpAfter: String(formData.get("follow_up") ?? ""),
           }
         : undefined,
     };
@@ -187,6 +202,38 @@ export default function EventForm({
           </div>
           <input name="phone" type="tel" placeholder="טלפון המרפאה" aria-label="טלפון המרפאה" className={field} dir="ltr" />
           <input name="prep" placeholder="להכין מראש (צום, טופס 17…)" aria-label="להכין מראש" className={field} />
+
+          {/* A5 */}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={referralNeeded}
+              onChange={(e) => setReferralNeeded(e.target.checked)}
+              className="size-4 accent-[var(--accent)]"
+            />
+            נדרשת הפניה
+          </label>
+          {referralNeeded ? (
+            <input
+              name="referral_number"
+              placeholder="מספר הפניה"
+              aria-label="מספר הפניה"
+              className={field}
+              dir="ltr"
+            />
+          ) : null}
+
+          {/* A7 */}
+          <label className="flex flex-col gap-1">
+            <span className="text-[0.74rem] text-ink-soft">ביקורת הבאה</span>
+            <select name="follow_up" defaultValue="" aria-label="ביקורת הבאה" className={field}>
+              {FOLLOW_UPS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </fieldset>
       ) : null}
 

@@ -24,6 +24,10 @@
 
   --danger:        #A85449;
   --danger-soft:   #FAE6E3;
+  /* A chip fill, plus the only red dark enough to sit on it at AA.
+     --danger itself is 4.34:1 there, which small text may not use. */
+  --danger-pastel: #F8DAD5;
+  --danger-ink:    #93463C;
 
   /* Valid over the FIXED member pastels only — never over themed fills,
      which invert with the theme. */
@@ -52,6 +56,8 @@
 
     --danger:        #E8A79C;
     --danger-soft:   #3A2724;
+    --danger-pastel: #4A2F2A;
+    --danger-ink:    #E8A79C;
 
     --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 22px rgb(0 0 0 / 0.28);
   }
@@ -76,6 +82,8 @@
 
   --danger:        #E8A79C;
   --danger-soft:   #3A2724;
+  --danger-pastel: #4A2F2A;
+  --danger-ink:    #E8A79C;
 
   --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 22px rgb(0 0 0 / 0.28);
 }
@@ -97,6 +105,8 @@
   --color-signal-soft:   var(--signal-soft);
   --color-danger:        var(--danger);
   --color-danger-soft:   var(--danger-soft);
+  --color-danger-pastel: var(--danger-pastel);
+  --color-danger-ink:    var(--danger-ink);
   --color-on-pastel:     var(--on-pastel);
 
   --font-sans: system-ui, -apple-system, "Segoe UI", "Noto Sans Hebrew",

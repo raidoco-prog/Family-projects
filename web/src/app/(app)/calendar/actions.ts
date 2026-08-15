@@ -31,6 +31,11 @@ export interface NewEventInput {
     hmo: string;
     phone: string;
     prepNotes: string;
+    /** A5 — many HMO appointments are refused without one. */
+    referralNeeded: boolean;
+    referralNumber: string;
+    /** A7 — when to book the check-up, as a Postgres interval like '6 months'. */
+    followUpAfter: string;
   };
 }
 
@@ -105,6 +110,9 @@ export async function createEvent(input: NewEventInput): Promise<ActionResult> {
       hmo: a.hmo.trim() || null,
       phone: a.phone.trim() || null,
       prep_notes: a.prepNotes.trim() || null,
+      referral_needed: a.referralNeeded,
+      referral_number: a.referralNumber.trim() || null,
+      follow_up_after: a.followUpAfter || null,
     });
 
     if (apptError) {

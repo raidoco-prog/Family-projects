@@ -6,13 +6,40 @@ import type { InventoryItem } from "@/lib/types";
 import {
   addInventoryItem,
   deleteInventoryItem,
+  setAutoRestock,
+  setExpiry,
   setInventoryQuantity,
+  setMinQuantity,
 } from "./actions";
 
 const byName = (a: InventoryItem, b: InventoryItem) =>
   a.name.localeCompare(b.name, "he");
 
 const LOCATIONS = ["מקרר", "מקפיא", "מזווה", "אמבטיה", "מכבסה", "ארונית", "אחר"];
+
+/** Within a week counts as "about to expire" — enough time to use it up. */
+const EXPIRY_WARNING_DAYS = 7;
+
+/**
+ * How close an expiry date is, in whole days, from the device's own clock.
+ *
+ * Deliberately a plain date comparison rather than an instant: `expires_on`
+ * is a `date`, and a carton of milk does not expire at a particular second.
+ */
+function daysUntil(expiresOn: string): number {
+  const [y, m, d] = expiresOn.split("-").map(Number);
+  const then = new Date(y, m - 1, d).getTime();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.round((then - today) / 86_400_000);
+}
+
+function expiryLabel(days: number): string {
+  if (days < 0) return `פג לפני ${Math.abs(days)} ימים`;
+  if (days === 0) return "פג היום";
+  if (days === 1) return "פג מחר";
+  return `פג בעוד ${days} ימים`;
+}
 
 export default function InventoryBoard({
   householdId,
@@ -24,6 +51,9 @@ export default function InventoryBoard({
   const [items, setItems] = useState(initialItems);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // The row stays a one-handed target; the rarely-changed fields live behind
+  // a tap rather than crowding it.
+  const [openId, setOpenId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useRealtimeRows<InventoryItem>(
@@ -75,6 +105,29 @@ export default function InventoryBoard({
     });
   }
 
+  /**
+   * Optimistic patch of one field, rolled back if the server refuses.
+   * The realtime UPDATE that follows carries the same value, so it lands as
+   * a no-op rather than a flicker.
+   */
+  function patch(
+    item: InventoryItem,
+    change: Partial<InventoryItem>,
+    run: () => Promise<{ error?: string }>,
+  ) {
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, ...change } : i)),
+    );
+    setError(null);
+    startTransition(async () => {
+      const res = await run();
+      if (res.error) {
+        setItems((prev) => prev.map((i) => (i.id === item.id ? item : i)));
+        setError(res.error);
+      }
+    });
+  }
+
   function remove(item: InventoryItem) {
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     startTransition(async () => {
@@ -94,6 +147,7 @@ export default function InventoryBoard({
       category: String(formData.get("category") ?? "אחר"),
       quantity: Number(formData.get("quantity") ?? 0),
       min_quantity: Number(formData.get("min_quantity") ?? 1),
+      expires_on: String(formData.get("expires_on") ?? "") || null,
     });
     if (res.error) setError(res.error);
     else {
@@ -135,16 +189,26 @@ export default function InventoryBoard({
                       4,
                       Math.min(100, (item.quantity / Math.max(target, 1)) * 100),
                     );
+                    const days =
+                      item.expires_on != null ? daysUntil(item.expires_on) : null;
+                    const expiring = days !== null && days <= EXPIRY_WARNING_DAYS;
+                    const open = openId === item.id;
 
                     return (
                       <li
                         key={item.id}
-                        className={`flex items-center gap-3 px-3.5 py-2.5 ${
+                        className={`flex flex-wrap items-center gap-3 px-3.5 py-2.5 ${
                           low ? "bg-signal-soft" : ""
                         }`}
                       >
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setOpenId(open ? null : item.id)}
+                          aria-expanded={open}
+                          aria-label={`הגדרות ${item.name}`}
+                          className="flex min-w-0 flex-1 flex-col text-start"
+                        >
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span className="truncate text-[0.93rem] font-semibold">
                               {item.name}
                             </span>
@@ -153,11 +217,28 @@ export default function InventoryBoard({
                                 חסר
                               </span>
                             ) : null}
+                            {/* U6: never colour alone — the state is spelled out. */}
+                            {expiring ? (
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[0.66rem] font-bold ${
+                                  days! < 0
+                                    ? "bg-danger-pastel text-danger-ink"
+                                    : "bg-signal-pastel text-signal"
+                                }`}
+                              >
+                                {expiryLabel(days!)}
+                              </span>
+                            ) : null}
+                            {!item.auto_restock ? (
+                              <span className="rounded-full bg-sunk px-2 py-0.5 text-[0.66rem] font-bold text-ink-soft">
+                                ללא השלמה
+                              </span>
+                            ) : null}
                           </div>
                           <span className="text-[0.78rem] text-ink-soft tabular-nums">
                             סף מינימום {item.min_quantity} {item.unit}
                           </span>
-                          <div className="mt-1 h-[3px] overflow-hidden rounded-sm bg-sunk">
+                          <div className="mt-1 h-[3px] w-full overflow-hidden rounded-sm bg-sunk">
                             <div
                               className={`h-full rounded-sm ${
                                 low ? "bg-signal" : "bg-accent"
@@ -165,7 +246,7 @@ export default function InventoryBoard({
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                        </div>
+                        </button>
 
                         <div className="flex shrink-0 items-center gap-0.5">
                           <button
@@ -198,6 +279,74 @@ export default function InventoryBoard({
                         >
                           ×
                         </button>
+
+                        {open ? (
+                          <div className="flex w-full flex-col gap-3 rounded-xl border border-rule bg-ground p-3">
+                            <div className="flex gap-2">
+                              <label className="flex flex-1 flex-col gap-1">
+                                <span className="text-[0.74rem] text-ink-soft">
+                                  סף מינימום
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  defaultValue={item.min_quantity}
+                                  aria-label={`סף מינימום ל${item.name}`}
+                                  onBlur={(e) => {
+                                    const next = Number(e.target.value);
+                                    if (next === item.min_quantity) return;
+                                    patch(item, { min_quantity: next }, () =>
+                                      setMinQuantity(item.id, next),
+                                    );
+                                  }}
+                                  className="h-10 rounded-xl border border-rule bg-surface px-2 text-sm tabular-nums"
+                                />
+                              </label>
+                              <label className="flex flex-1 flex-col gap-1">
+                                <span className="text-[0.74rem] text-ink-soft">
+                                  תאריך תפוגה
+                                </span>
+                                <input
+                                  type="date"
+                                  defaultValue={item.expires_on ?? ""}
+                                  aria-label={`תאריך תפוגה ל${item.name}`}
+                                  onChange={(e) => {
+                                    const next = e.target.value || null;
+                                    patch(item, { expires_on: next }, () =>
+                                      setExpiry(item.id, next),
+                                    );
+                                  }}
+                                  className="h-10 rounded-xl border border-rule bg-surface px-2 text-sm"
+                                />
+                              </label>
+                            </div>
+
+                            <label className="flex items-start gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={item.auto_restock}
+                                onChange={(e) => {
+                                  const next = e.target.checked;
+                                  patch(item, { auto_restock: next }, () =>
+                                    setAutoRestock(item.id, next),
+                                  );
+                                }}
+                                className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]"
+                              />
+                              <span className="flex flex-col">
+                                <span className="text-[0.85rem] font-semibold">
+                                  השלמה אוטומטית
+                                </span>
+                                <span className="text-[0.74rem] leading-relaxed text-ink-soft">
+                                  ירידה אל הסף פותחת פריט ברשימת הקניות מעצמה.
+                                  כבו את זה למוצרים שלא רוצים לקנות שוב
+                                  אוטומטית.
+                                </span>
+                              </span>
+                            </label>
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -279,6 +428,17 @@ export default function InventoryBoard({
             aria-label="קטגוריה"
             className="h-10 rounded-xl border border-rule bg-ground px-3 text-sm placeholder:text-ink-faint"
           />
+          <label className="flex flex-col gap-1">
+            <span className="text-[0.74rem] text-ink-soft">
+              תאריך תפוגה (אופציונלי)
+            </span>
+            <input
+              type="date"
+              name="expires_on"
+              aria-label="תאריך תפוגה"
+              className="h-10 rounded-xl border border-rule bg-ground px-2 text-sm"
+            />
+          </label>
           <div className="flex gap-2">
             <button
               type="submit"

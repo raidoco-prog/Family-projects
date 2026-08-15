@@ -11,6 +11,14 @@ const PRIORITIES: { value: number; label: string; dot: string }[] = [
   { value: 3, label: "כשאפשר", dot: "bg-rule" },
 ];
 
+const REPEATS: { value: NewTaskInput["repeat"]; label: string }[] = [
+  { value: "none", label: "לא חוזרת" },
+  { value: "daily", label: "כל יום" },
+  { value: "weekly", label: "כל שבוע" },
+  { value: "monthly", label: "כל חודש" },
+  { value: "yearly", label: "כל שנה" },
+];
+
 const field =
   "h-10 rounded-xl border border-rule bg-ground px-3 text-sm placeholder:text-ink-faint";
 
@@ -41,6 +49,9 @@ export default function TaskForm({
       time: withDeadline ? String(formData.get("time") ?? "") : "",
       priority,
       notes: String(formData.get("notes") ?? ""),
+      repeat: withDeadline
+        ? (String(formData.get("repeat") ?? "none") as NewTaskInput["repeat"])
+        : "none",
     };
     startTransition(async () => {
       const res = await createTask(input);
@@ -123,10 +134,28 @@ export default function TaskForm({
       </label>
 
       {withDeadline ? (
-        <div className="flex gap-2">
-          <input type="date" name="date" defaultValue={defaultDate} aria-label="תאריך יעד" className={`${field} flex-1`} />
-          <input type="time" name="time" defaultValue="20:00" aria-label="שעת יעד" className={`${field} flex-1`} />
-        </div>
+        <>
+          <div className="flex gap-2">
+            <input type="date" name="date" defaultValue={defaultDate} aria-label="תאריך יעד" className={`${field} flex-1`} />
+            <input type="time" name="time" defaultValue="20:00" aria-label="שעת יעד" className={`${field} flex-1`} />
+          </div>
+          {/* T8. Only offered alongside a deadline: a repeat needs something
+              to repeat from. */}
+          <label className="flex flex-col gap-1">
+            <span className="text-[0.74rem] text-ink-soft">חזרתיות</span>
+            <select name="repeat" defaultValue="none" aria-label="חזרתיות" className={field}>
+              {REPEATS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <span className="text-[0.72rem] leading-relaxed text-ink-faint">
+              כשמסמנים «בוצע», נוצר המופע הבא. המופע שהושלם נשמר עם מי שביצע
+              אותו בפועל.
+            </span>
+          </label>
+        </>
       ) : null}
 
       <input name="notes" placeholder="הערה (לא חובה)" aria-label="הערה" className={field} />

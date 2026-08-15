@@ -18,6 +18,7 @@ import {
   clearCheckedItems,
   deleteShoppingItem,
   setShoppingChecked,
+  setShoppingQuantity,
 } from "./actions";
 
 const newestFirst = (a: ShoppingItem, b: ShoppingItem) =>
@@ -79,6 +80,7 @@ export default function ShoppingBoard({
       const res = await flushQueue(householdId, {
         add: addShoppingItem,
         check: setShoppingChecked,
+        quantity: setShoppingQuantity,
         remove: deleteShoppingItem,
         clear: clearCheckedItems,
       });
@@ -242,9 +244,41 @@ export default function ShoppingBoard({
           >
             {item.name}
           </span>
-          <span className="text-[0.78rem] text-ink-soft tabular-nums">
-            {item.quantity} {item.unit ?? "יח׳"}
-          </span>
+          {/* The auto-added quantity is the restock target, which is a guess.
+              Editable so "buy 3" can become "buy 6" before the shop. */}
+          <label className="flex items-center gap-1 text-[0.78rem] text-ink-soft">
+            <input
+              type="number"
+              min={1}
+              step="any"
+              defaultValue={item.quantity}
+              disabled={item.is_checked}
+              aria-label={`כמות ${item.name}`}
+              onBlur={(e) => {
+                const next = Number(e.target.value);
+                if (!Number.isFinite(next) || next < 1 || next === item.quantity) {
+                  e.target.value = String(item.quantity);
+                  return;
+                }
+                setItems((prev) =>
+                  prev.map((i) => (i.id === item.id ? { ...i, quantity: next } : i)),
+                );
+                setError(null);
+                commit(
+                  { op: "quantity", id: item.id, quantity: next },
+                  () => setShoppingQuantity(item.id, next),
+                  () =>
+                    setItems((prev) =>
+                      prev.map((i) =>
+                        i.id === item.id ? { ...i, quantity: item.quantity } : i,
+                      ),
+                    ),
+                );
+              }}
+              className="w-12 rounded-md border border-rule bg-ground px-1 py-0.5 text-center tabular-nums disabled:border-transparent disabled:bg-transparent"
+            />
+            {item.unit ?? "יח׳"}
+          </label>
         </div>
 
         {auto ? (

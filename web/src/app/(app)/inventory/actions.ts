@@ -41,6 +41,7 @@ export interface NewInventoryItem {
   category: string;
   quantity: number;
   min_quantity: number;
+  expires_on: string | null;
 }
 
 export async function addInventoryItem(
@@ -64,6 +65,7 @@ export async function addInventoryItem(
     category: item.category || "אחר",
     quantity: item.quantity,
     min_quantity: item.min_quantity,
+    expires_on: item.expires_on || null,
   });
 
   if (error) {
@@ -93,6 +95,51 @@ export async function setMinQuantity(
   const { error } = await supabase
     .from("inventory_items")
     .update({ min_quantity: minQuantity })
+    .eq("id", id);
+
+  return error ? { error: "העדכון נכשל. נסו שוב." } : {};
+}
+
+/**
+ * L6 — turns automatic restocking off for one product.
+ *
+ * sync_low_stock_to_shopping already honours the column; until now nothing
+ * could set it, so every item was restocked whether that made sense or not.
+ * Wine and paracetamol are the obvious cases: running low is not a reason to
+ * put them on the list.
+ */
+export async function setAutoRestock(
+  id: string,
+  autoRestock: boolean,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return { error: EXPIRED };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("inventory_items")
+    .update({ auto_restock: autoRestock })
+    .eq("id", id);
+
+  return error ? { error: "העדכון נכשל. נסו שוב." } : {};
+}
+
+/** I6 — expiry date. Empty clears it. */
+export async function setExpiry(
+  id: string,
+  expiresOn: string | null,
+): Promise<ActionResult> {
+  if (expiresOn && !/^\d{4}-\d{2}-\d{2}$/.test(expiresOn)) {
+    return { error: "תאריך לא תקין." };
+  }
+
+  const session = await getSession();
+  if (!session) return { error: EXPIRED };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("inventory_items")
+    .update({ expires_on: expiresOn || null })
     .eq("id", id);
 
   return error ? { error: "העדכון נכשל. נסו שוב." } : {};

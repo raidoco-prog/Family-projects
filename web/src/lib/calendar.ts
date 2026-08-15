@@ -84,6 +84,38 @@ export function nowIn(timeZone: string): Date {
   return zonedDate(new Date(), timeZone);
 }
 
+/**
+ * The first occurrence of `rule` strictly after `from`.
+ *
+ * The wall-clock time is carried over rather than adding a fixed interval:
+ * "every week at 20:00" must stay 20:00 across a DST change, and rrule works
+ * in UTC where a week is always exactly 168 hours. Returns null for a rule
+ * that is malformed or has simply run out.
+ */
+export function nextOccurrence(
+  rule: string,
+  from: Date,
+  timeZone: string,
+): Date | null {
+  let next: Date | null;
+  try {
+    const options = RRule.parseString(rule.replace(/^RRULE:/, ""));
+    next = new RRule({ ...options, dtstart: from }).after(from, false);
+  } catch {
+    return null;
+  }
+  if (!next) return null;
+
+  const wall = zonedDate(from, timeZone);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const rebuilt = zonedTimeToInstant(
+    `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}` +
+      `T${pad(wall.getHours())}:${pad(wall.getMinutes())}`,
+    timeZone,
+  );
+  return Number.isNaN(rebuilt.getTime()) ? null : rebuilt;
+}
+
 export function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);

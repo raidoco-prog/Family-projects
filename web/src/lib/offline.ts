@@ -27,6 +27,7 @@ const QUEUE = (household: string) => `shopping:queue:${household}`;
 export type PendingOp =
   | { op: "add"; tempId: string; name: string }
   | { op: "check"; id: string; checked: boolean }
+  | { op: "quantity"; id: string; quantity: number }
   | { op: "delete"; id: string }
   | { op: "clear" };
 
@@ -86,6 +87,7 @@ export async function flushQueue(
   handlers: {
     add: (name: string) => Promise<{ id?: string; error?: string }>;
     check: (id: string, checked: boolean) => Promise<{ error?: string }>;
+    quantity: (id: string, quantity: number) => Promise<{ error?: string }>;
     remove: (id: string) => Promise<{ error?: string }>;
     clear: () => Promise<{ error?: string }>;
   },
@@ -105,6 +107,8 @@ export async function flushQueue(
       if (!error && res.id) realId.set(op.tempId, res.id);
     } else if (op.op === "check") {
       error = (await handlers.check(resolve(op.id), op.checked)).error;
+    } else if (op.op === "quantity") {
+      error = (await handlers.quantity(resolve(op.id), op.quantity)).error;
     } else if (op.op === "delete") {
       error = (await handlers.remove(resolve(op.id))).error;
     } else {
