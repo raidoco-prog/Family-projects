@@ -9,8 +9,9 @@ Repo for family projects and apps
 
 | קובץ | תוכן |
 |---|---|
-| [`web/`](web/) | **קוד הייצור.** Next.js + Supabase. שלב 0 הושלם |
+| [`web/`](web/) | **קוד הייצור.** Next.js + Supabase. שלבים 0–6 הושלמו |
 | [`poc/index.html`](poc/index.html) | **אב טיפוס עובד.** קובץ בודד, בלי התקנה — פותחים בדפדפן |
+| [`docs/START.md`](docs/START.md) | **מדריך הפעלה בשפה פשוטה** — לבני המשפחה, ולהקמה על המחשב |
 | [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | מסמך דרישות: מה המערכת עושה וקריטריוני קבלה |
 | [`docs/PLAN.md`](docs/PLAN.md) | ארכיטקטורה, מודל נתונים, חלוקה לשלבים ומלכודות |
 | [`docs/schema.sql`](docs/schema.sql) | סכימת Postgres מלאה עם טריגרים ו-RLS, מוכנה להרצה |
