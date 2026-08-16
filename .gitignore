@@ -1,22 +1,33 @@
-# Node.js dependencies
-/web/node_modules/
+# Generated screenshots. Binary files do not diff, so committing them would
+# add a full copy to git history on every refresh. Regenerate instead:
+#   node scripts/screenshots.mjs
+Screens/
 
-# Next.js build output
-/web/.next/
+# dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# Local env files
-.env*
+# next.js
+.next/
+out/
+build/
+next-env.d.ts
 
-# Log files
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+
+# debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# macOS
-.DS_Store
+# local env files
+.env
+.env.local
+.env*.local
 
-# Local VS Code workspace settings
-.vscode/
-
-# Local screenshots or temporary artifacts
-Screens/
+# vercel
+.vercel

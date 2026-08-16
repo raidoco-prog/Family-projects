@@ -1,0 +1,21 @@
+{
+  // The Next.js app lives in web/, not at the workspace root.
+  "typescript.tsdk": "web/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // Tailwind v4 has no tailwind.config.js — the theme lives in the CSS file,
+  // and the extension needs to be pointed at it explicitly.
+  "tailwindCSS.experimental.configFile": "web/src/app/globals.css",
+  "tailwindCSS.includeLanguages": { "typescriptreact": "javascript" },
+
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[sql]": { "editor.defaultFormatter": null },
+
+  "files.eol": "\n",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/package-lock.json": true
+  }
+}
