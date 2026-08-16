@@ -2,10 +2,26 @@
 
 /* ============================================================
    Design tokens — mirrored from the validated prototype.
-   Every pair below was checked to clear WCAG AA in both themes.
+   Every pair below was checked to clear WCAG AA.
+
+   LIGHT ONLY, by decision. There is deliberately no
+   prefers-color-scheme block and no [data-theme] block: the light
+   screens are the ones that were reviewed and approved, and they are
+   what every device shows regardless of its own setting.
+
+   That makes painting explicit non-optional. A phone in dark mode
+   still renders this palette, so any element that sets a colour must
+   take it from a token here — never leave a surface transparent and
+   assume the ground beneath it is light.
    ============================================================ */
 
 :root {
+  /* Tells the browser not to auto-darken what it draws itself. Without
+     this, a phone set to dark mode renders the light palette but with
+     dark date pickers, selects, checkboxes and scrollbars — and this app
+     is full of them. */
+  color-scheme: light;
+
   --ground:        #F2F5FA;
   --surface:       #FFFFFF;
   --sunk:          #EDF1F8;
@@ -34,58 +50,6 @@
   --on-pastel:     #2B3242;
 
   --shadow: 0 1px 2px rgb(43 50 66 / 0.05), 0 8px 22px rgb(43 50 66 / 0.05);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --ground:        #161A22;
-    --surface:       #1E232D;
-    --sunk:          #262C38;
-    --ink:           #E8ECF3;
-    --ink-soft:      #AEB7C6;
-    --ink-faint:     #8D96A6;
-    --rule:          #303747;
-
-    --accent:        #9FC5E8;
-    --accent-pastel: #2E4157;
-    --accent-soft:   #232E3C;
-
-    --signal:        #E8C08A;
-    --signal-pastel: #3E3425;
-    --signal-soft:   #2C2620;
-
-    --danger:        #E8A79C;
-    --danger-soft:   #3A2724;
-    --danger-pastel: #4A2F2A;
-    --danger-ink:    #E8A79C;
-
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 22px rgb(0 0 0 / 0.28);
-  }
-}
-
-:root[data-theme="dark"] {
-  --ground:        #161A22;
-  --surface:       #1E232D;
-  --sunk:          #262C38;
-  --ink:           #E8ECF3;
-  --ink-soft:      #AEB7C6;
-  --ink-faint:     #8D96A6;
-  --rule:          #303747;
-
-  --accent:        #9FC5E8;
-  --accent-pastel: #2E4157;
-  --accent-soft:   #232E3C;
-
-  --signal:        #E8C08A;
-  --signal-pastel: #3E3425;
-  --signal-soft:   #2C2620;
-
-  --danger:        #E8A79C;
-  --danger-soft:   #3A2724;
-  --danger-pastel: #4A2F2A;
-  --danger-ink:    #E8A79C;
-
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 22px rgb(0 0 0 / 0.28);
 }
 
 /* Expose the tokens as Tailwind utilities: bg-surface, text-ink, border-rule… */

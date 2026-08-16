@@ -2,6 +2,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
   :root {
+    /* Light only, by decision — no dark blocks here on purpose.
+       color-scheme stops the browser auto-darkening its own controls
+       on a device set to dark. */
+    color-scheme: light;
+
     --ground:        #F2F5FA;
     --surface:       #FFFFFF;
     --sunk:          #EDF1F8;
@@ -26,54 +31,6 @@
 
     --sans: system-ui, -apple-system, "Segoe UI", "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
     --serif: "Frank Ruhl Libre", "David Libre", "Narkisim", Georgia, serif;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ground:        #161A22;
-      --surface:       #1E232D;
-      --sunk:          #262C38;
-      --ink:           #E8ECF3;
-      --ink-soft:      #AEB7C6;
-      --ink-faint:     #8D96A6;
-      --rule:          #303747;
-
-      --accent:        #9FC5E8;
-      --accent-pastel: #2E4157;
-      --accent-soft:   #232E3C;
-
-      --signal:        #E8C08A;
-      --signal-pastel: #3E3425;
-      --signal-soft:   #2C2620;
-
-      --danger:        #E8A79C;
-      --danger-soft:   #3A2724;
-
-      --shadow:        0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
-    }
-  }
-
-  :root[data-theme="dark"] {
-    --ground:        #161A22;
-    --surface:       #1E232D;
-    --sunk:          #262C38;
-    --ink:           #E8ECF3;
-    --ink-soft:      #AEB7C6;
-    --ink-faint:     #8D96A6;
-    --rule:          #303747;
-
-    --accent:        #9FC5E8;
-    --accent-pastel: #2E4157;
-    --accent-soft:   #232E3C;
-
-    --signal:        #E8C08A;
-    --signal-pastel: #3E3425;
-    --signal-soft:   #2C2620;
-
-    --danger:        #E8A79C;
-    --danger-soft:   #3A2724;
-
-    --shadow:        0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28);
   }
 
   * { box-sizing: border-box; }
