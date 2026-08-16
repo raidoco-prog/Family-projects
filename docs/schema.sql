@@ -68,6 +68,8 @@ create table events (
   reminders_on  boolean not null default true,   -- כיבוי תזכורות לאירוע בודד
   -- מסומן כשהאירוע הוא יום הולדת שנגזר משורת בן משפחה, ולא הוזן ידנית.
   birthday_for  uuid unique references members(id) on delete cascade,
+  -- C9: מזהה יציב של חג מלוח השנה העברי, כדי שסנכרון חוזר יעדכן ולא ישכפל.
+  holiday_key   text,
   created_by    uuid references members(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
@@ -75,6 +77,14 @@ create table events (
 );
 
 create index on events (household_id, starts_at);
+-- חג אחד לכל משק בית. הסנכרון עושה upsert מעל האינדקס הזה.
+--
+-- לא אינדקס חלקי, למרות שרוב האירועים אינם חגים: ל-ON CONFLICT אפשר
+-- להסיק אינדקס חלקי רק אם המשפט חוזר על תנאי ה-WHERE שלו, ו-PostgREST
+-- אינו שולח אותו — התוצאה הייתה 42P10. NULL נחשב ייחודי בפוסטגרס, ולכן
+-- אינדקס מלא מתיר כמה שצריך אירועים רגילים עם holiday_key ריק.
+create unique index events_household_holiday_key
+  on events (household_id, holiday_key);
 
 create table event_participants (
   event_id   uuid not null references events(id) on delete cascade,

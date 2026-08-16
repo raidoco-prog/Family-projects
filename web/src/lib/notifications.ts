@@ -1,7 +1,8 @@
 import webpush from "web-push";
 import { RRule } from "rrule";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { zonedDate } from "@/lib/calendar";
+import { zonedDate, zonedTimeToInstant } from "@/lib/calendar";
+import { israeliHolidays } from "@/lib/holidays";
 
 /* ============================================================
    The notification pipeline, run by the cron.
@@ -31,6 +32,7 @@ const HORIZON_DAYS = 60;
 const STALE_HOURS = 24;
 
 export interface CronReport {
+  holidaysSynced: number;
   occurrencesMaterialised: number;
   queued: number;
   sent: number;
@@ -46,6 +48,59 @@ export interface CronReport {
 }
 
 type Db = SupabaseClient;
+
+/* ---------------------------------------------------------------- */
+/* 0. Jewish and Israeli holidays -> events                          */
+/* ---------------------------------------------------------------- */
+
+/** Keeps roughly this far ahead, so next Pesach is always already there. */
+const HOLIDAY_YEARS_AHEAD = 1;
+
+/**
+ * C9 — writes the holidays into `events` as real rows.
+ *
+ * Real rows for the same reason birthdays are: reminders hang off an
+ * `event_id`, so a holiday computed only at render time could never
+ * produce the 10:30 notice R3 asks for.
+ *
+ * It runs from the cron rather than at signup because the set has to keep
+ * extending — a household created today needs 2028's holidays in 2027.
+ * The upsert makes re-running free.
+ */
+export async function syncHolidays(
+  db: Db,
+  now: Date,
+  timeZone: string,
+): Promise<number> {
+  const { data: households } = await db.from("households").select("id");
+  if (!households?.length) return 0;
+
+  const thisYear = zonedDate(now, timeZone).getFullYear();
+  const holidays = israeliHolidays(thisYear, thisYear + HOLIDAY_YEARS_AHEAD);
+  if (!holidays.length) return 0;
+
+  let written = 0;
+  for (const household of households as { id: string }[]) {
+    const rows = holidays.map((h) => ({
+      household_id: household.id,
+      kind: "holiday",
+      title: h.title,
+      // Midnight in the household's zone, matching how birthdays are
+      // stored — the 10:30 rule reads the date back out in that zone.
+      starts_at: zonedTimeToInstant(`${h.date}T00:00`, timeZone).toISOString(),
+      all_day: true,
+      reminders_on: h.remind,
+      holiday_key: h.key,
+    }));
+
+    const { error } = await db
+      .from("events")
+      .upsert(rows, { onConflict: "household_id,holiday_key", ignoreDuplicates: true });
+    if (!error) written += rows.length;
+  }
+
+  return written;
+}
 
 /* ---------------------------------------------------------------- */
 /* 1. recurring events -> event_reminders                            */

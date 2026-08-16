@@ -7,6 +7,7 @@ import {
   queueEventNotifications,
   queueTaskNotifications,
   sendPending,
+  syncHolidays,
   type CronReport,
 } from "@/lib/notifications";
 
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
   const now = new Date();
 
   const report: CronReport = {
+    holidaysSynced: 0,
     occurrencesMaterialised: 0,
     queued: 0,
     sent: 0,
@@ -56,6 +58,9 @@ export async function POST(request: NextRequest) {
   const timeZone = household?.timezone || "Asia/Jerusalem";
 
   try {
+    // Before anything reads events: a holiday that is not a row yet cannot
+    // get a reminder built for it.
+    report.holidaysSynced = await syncHolidays(db, now, timeZone);
     report.occurrencesMaterialised = await materialiseRecurring(db, now, timeZone);
     report.queued =
       (await queueEventNotifications(db, now)) +
