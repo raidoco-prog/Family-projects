@@ -70,6 +70,9 @@ create table events (
   birthday_for  uuid unique references members(id) on delete cascade,
   -- C9: מזהה יציב של חג מלוח השנה העברי, כדי שסנכרון חוזר יעדכן ולא ישכפל.
   holiday_key   text,
+  -- מזהה האירוע במקור חיצוני, למשל 'gcal:<id>'. אותו תפקיד כמו
+  -- holiday_key, עבור ייבוא מיומן גוגל. ראה gcal-import.sql.
+  external_key  text,
   created_by    uuid references members(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
