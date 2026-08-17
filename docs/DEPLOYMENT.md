@@ -87,6 +87,8 @@
    | `VAPID_PRIVATE_KEY` | מאותה פקודה | **לא — שרת בלבד** | הקרון מחזיר 500, שום התראה לא נשלחת |
    | `CRON_SECRET` | `openssl rand -hex 32` | **לא — שרת בלבד** | הקרון מחזיר 500, שום התראה לא נשלחת |
    | `VAPID_SUBJECT` | `mailto:you@example.com` | לא | אופציונלי; יש ברירת מחדל |
+   | `GOOGLE_CLIENT_ID` | אותו זוג שהדבקת ב-Supabase | **לא — שרת בלבד** | סנכרון היומן נכשל ב-`invalid_client` |
+   | `GOOGLE_CLIENT_SECRET` | מאותו מקום | **לא — שרת בלבד** | כנ״ל |
 
 3. Deploy. כל דחיפה ל-`main` מעלה לפרודקשן, וכל Pull Request מקבל כתובת תצוגה
    מקדימה משלו.

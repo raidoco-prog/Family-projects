@@ -10,6 +10,7 @@ import {
   syncHolidays,
   type CronReport,
 } from "@/lib/notifications";
+import { syncCalendars, type CalendarReport } from "@/lib/gcal";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,17 @@ export async function POST(request: NextRequest) {
     .maybeSingle<{ timezone: string }>();
   const timeZone = household?.timezone || "Asia/Jerusalem";
 
+  // Runs before the reminder pass so an event that arrived from Google in
+  // this same tick already has its reminders built, instead of waiting a
+  // further fifteen minutes. A calendar failure must not stop the
+  // reminders, which is why it has its own try.
+  let calendar: CalendarReport | { error: string };
+  try {
+    calendar = await syncCalendars(db, now, timeZone);
+  } catch (err) {
+    calendar = { error: err instanceof Error ? err.message : "calendar sync failed" };
+  }
+
   try {
     // Before anything reads events: a holiday that is not a row yet cannot
     // get a reminder built for it.
@@ -69,10 +81,10 @@ export async function POST(request: NextRequest) {
     await sendPending(db, now, timeZone, report);
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "cron failed", report },
+      { error: err instanceof Error ? err.message : "cron failed", report, calendar },
       { status: 500 },
     );
   }
 
-  return NextResponse.json({ ok: true, at: now.toISOString(), ...report });
+  return NextResponse.json({ ok: true, at: now.toISOString(), ...report, calendar });
 }
