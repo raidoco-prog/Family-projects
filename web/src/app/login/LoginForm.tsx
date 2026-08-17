@@ -49,6 +49,12 @@ export default function LoginForm({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          // Without this, Google silently reuses the single account already
+          // signed in on the device and shows no picker at all. On a phone
+          // or tablet set up with a parent's account, every child who opens
+          // an invite is signed in as that parent — and nothing on screen
+          // says so. One extra tap for everyone else is worth it.
+          queryParams: { prompt: "select_account" },
         },
       });
       if (error) setGoogleError(error.message);
