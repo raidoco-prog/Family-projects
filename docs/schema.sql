@@ -802,16 +802,6 @@ begin
     raise exception 'not authenticated' using errcode = '28000';
   end if;
 
-  -- חשבון אחד שייך לשורת בן משפחה אחת, ועל כך שומר האינדקס הייחודי
-  -- על members.user_id. בלי הבדיקה כאן ההתנגשות הייתה מגיעה כ-23505
-  -- מאותו סוג שמסמן «המקום נתפס» — הודעה שמפנה את המשתמש לכיוון
-  -- ההפוך מהבעיה. המקרה השכיח הוא מכשיר משותף: הילד מחובר לגוגל
-  -- של ההורה, ולכן החשבון שמגיע לכאן הוא של ההורה.
-  if exists (select 1 from members where user_id = auth.uid()) then
-    raise exception 'account already linked to a member'
-      using errcode = 'P0003';
-  end if;
-
   select * into inv
     from household_invites
    where token = p_token
@@ -821,6 +811,32 @@ begin
 
   if not found then
     raise exception 'invite not found or expired' using errcode = '22023';
+  end if;
+
+  -- חשבון אחד שייך לשורת בן משפחה אחת, ועל כך שומר האינדקס הייחודי
+  -- על members.user_id. ההתנגשות הייתה מגיעה כ-23505 — אותו קוד
+  -- שמסמן «המקום נתפס» — כלומר הודעה שמפנה לכיוון ההפוך מהבעיה.
+  select id into v_member
+    from members
+   where user_id = auth.uid()
+     and household_id = inv.household_id;
+
+  if v_member is not null then
+    -- כבר בבית הזה. אם זו ההזמנה שלו עצמו, או הזמנה כללית, אין כאן
+    -- שגיאה — הוא פשוט כבר בפנים, וההזמנה נשארת שלמה.
+    if inv.member_id is null or inv.member_id = v_member then
+      return v_member;
+    end if;
+    -- אבל הזמנה של מישהו אחר בבית היא בדיוק מקרה המכשיר המשותף:
+    -- הילד מחובר לגוגל של ההורה, והחשבון שהגיע לכאן הוא של ההורה.
+    raise exception 'invite belongs to another member'
+      using errcode = 'P0003';
+  end if;
+
+  -- משויך לבית אחר לגמרי.
+  if exists (select 1 from members where user_id = auth.uid()) then
+    raise exception 'account already linked to a member'
+      using errcode = 'P0003';
   end if;
 
   if inv.member_id is not null then
