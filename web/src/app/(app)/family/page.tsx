@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import MemberAvatar from "@/components/MemberAvatar";
 import AddMemberForm from "./AddMemberForm";
 import InviteButton from "./InviteButton";
+import EditMemberForm from "./EditMemberForm";
 import type { HouseholdInvite } from "@/lib/types";
 
 function age(birthDate: string | null): number | null {
@@ -43,7 +44,7 @@ export default async function FamilyPage() {
             const years = age(m.birth_date);
             const invite = openInvite(m.id);
             return (
-              <li key={m.id} className="flex items-center gap-3 px-3.5 py-3">
+              <li key={m.id} className="flex flex-wrap items-center gap-3 px-3.5 py-3">
                 <MemberAvatar member={m} size="md" />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="text-[0.93rem] font-semibold">
@@ -73,6 +74,8 @@ export default async function FamilyPage() {
                     ללא חשבון
                   </span>
                 )}
+
+                {isParent ? <EditMemberForm member={m} /> : null}
               </li>
             );
           })}
