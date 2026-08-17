@@ -38,12 +38,37 @@
 2. הדבק את [`schema.sql`](./schema.sql) ב-SQL Editor והרץ.
    **על פרויקט שכבר יש בו סכימה** הרץ קודם [`reset.sql`](./reset.sql):
    הסכימה משתמשת ב-`create table`, ולכן הרצה חוזרת על טבלאות קיימות נכשלת.
-3. Authentication → Providers → הפעל **Google** (ו-**Email** עבור קישורי
-   כניסה, לבני משפחה ללא חשבון גוגל).
+3. Authentication → Providers → הפעל **Email** ו-**Google**.
+   ל-Google נדרשת הכנה נפרדת ב-Google Cloud — ראה [הפעלת Google](#הפעלת-google)
+   מיד למטה. בלעדיה כפתור «המשך עם גוגל» מוביל לדף JSON לבן עם
+   `Unsupported provider: provider is not enabled`.
 4. Authentication → URL Configuration → הוסף את כתובת ה-Production ואת
    `http://localhost:3000` לרשימת ה-Redirect URLs.
 5. העתק מ-Settings → API את `Project URL`, את `anon key` ואת
    `service_role key`.
+
+#### הפעלת Google
+
+ספק ה-OAuth של גוגל לא נדלק בלחיצה אחת: צריך לייצר אצל גוגל זוג מפתחות
+ולהדביק אותו ב-Supabase.
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → פרויקט חדש.
+2. **APIs & Services → OAuth consent screen** → סוג **External** → מלא שם
+   אפליקציה ואימייל תמיכה → שמור. כל עוד המסך במצב *Testing*, רק כתובות
+   שהוספת תחת **Test users** יוכלו להתחבר — הוסף שם את כל בני המשפחה, או
+   לחץ **Publish app**.
+3. **Credentials → Create credentials → OAuth client ID** → סוג
+   **Web application**.
+4. תחת **Authorized redirect URIs** הדבק בדיוק את הכתובת הזאת, עם מזהה
+   הפרויקט שלך:
+   `https://<project-ref>.supabase.co/auth/v1/callback`
+   זו כתובת של Supabase, **לא** של Vercel. גוגל חוזרת אל Supabase, ורק
+   אחר כך Supabase מחזירה אל האפליקציה.
+5. העתק את **Client ID** ואת **Client secret** אל Supabase →
+   Authentication → Providers → Google → הדלק את המתג, הדבק, **Save**.
+
+השינוי נכנס לתוקף מיד; אין צורך לפרוס מחדש ב-Vercel, כי שום דבר מזה לא
+נכנס לקוד.
 
 ### 2. Vercel
 
