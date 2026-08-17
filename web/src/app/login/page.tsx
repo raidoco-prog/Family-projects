@@ -4,9 +4,9 @@ import LoginForm from "./LoginForm";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 p-6">
@@ -18,7 +18,7 @@ export default async function LoginPage({
       </header>
 
       <Suspense>
-        <LoginForm next={next ?? "/"} />
+        <LoginForm next={next ?? "/"} refusal={error} />
       </Suspense>
 
       <p className="text-center text-xs leading-relaxed text-ink-faint">
