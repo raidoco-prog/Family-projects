@@ -30,9 +30,11 @@ export async function POST(request: NextRequest) {
   if (request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!configureWebPush()) {
-    return NextResponse.json({ error: "VAPID keys are not set" }, { status: 500 });
-  }
+  // Deliberately not a guard any more. Push needs VAPID keys; the calendar
+  // sync does not, and refusing the whole request meant a household that had
+  // not set up notifications yet got no calendar either — with a 500 that
+  // named VAPID and said nothing about the calendar.
+  const pushReady = configureWebPush();
 
   const db = createAdminClient();
   const now = new Date();
@@ -78,7 +80,10 @@ export async function POST(request: NextRequest) {
       (await queueEventNotifications(db, now)) +
       (await queueTaskNotifications(db, now, timeZone)) +
       (await queueDigest(db, now, timeZone));
-    await sendPending(db, now, timeZone, report);
+
+    // Queueing still happens without VAPID: the rows wait in the outbox and
+    // go out on the first run after the keys are set.
+    if (pushReady) await sendPending(db, now, timeZone, report);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "cron failed", report, calendar },
@@ -86,5 +91,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, at: now.toISOString(), ...report, calendar });
+  return NextResponse.json({
+    ok: true,
+    at: now.toISOString(),
+    ...report,
+    calendar,
+    ...(pushReady ? {} : { push: "VAPID keys are not set — nothing was sent" }),
+  });
 }
