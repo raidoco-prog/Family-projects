@@ -25,12 +25,20 @@ export async function claimInvite(
   });
 
   if (error) {
+    // P0003 and 23505 are opposite problems and must not share wording.
+    // P0003: this Google account already belongs to somebody else in the
+    // house — almost always a shared phone still signed in as a parent,
+    // and the fix is to switch accounts. 23505: the slot itself is gone.
     const message =
       error.code === "22023"
         ? "ההזמנה כבר נוצלה או שפג תוקפה. בקשו קישור חדש."
-        : error.code === "23505"
-          ? "המקום הזה כבר נתפס."
-          : "ההצטרפות נכשלה. נסו שוב.";
+        : error.code === "P0003"
+          ? "החשבון שאיתם נכנסתם כבר שייך לבן משפחה אחר בבית. " +
+            "כנראה המכשיר מחובר לגוגל של מישהו אחר — לחצו «זה לא אני» " +
+            "למעלה והתחברו עם החשבון שלכם."
+          : error.code === "23505"
+            ? "המקום הזה כבר נתפס."
+            : "ההצטרפות נכשלה. נסו שוב.";
     return { error: message };
   }
 

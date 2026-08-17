@@ -802,6 +802,16 @@ begin
     raise exception 'not authenticated' using errcode = '28000';
   end if;
 
+  -- חשבון אחד שייך לשורת בן משפחה אחת, ועל כך שומר האינדקס הייחודי
+  -- על members.user_id. בלי הבדיקה כאן ההתנגשות הייתה מגיעה כ-23505
+  -- מאותו סוג שמסמן «המקום נתפס» — הודעה שמפנה את המשתמש לכיוון
+  -- ההפוך מהבעיה. המקרה השכיח הוא מכשיר משותף: הילד מחובר לגוגל
+  -- של ההורה, ולכן החשבון שמגיע לכאן הוא של ההורה.
+  if exists (select 1 from members where user_id = auth.uid()) then
+    raise exception 'account already linked to a member'
+      using errcode = 'P0003';
+  end if;
+
   select * into inv
     from household_invites
    where token = p_token
