@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { NEXT_COOKIE, NEXT_COOKIE_MAX_AGE } from "@/lib/next-path";
 
 export interface CalendarStatus {
   connected: boolean;
@@ -25,11 +26,18 @@ export default function CalendarCard({ status }: { status: CalendarStatus }) {
 
   function connect() {
     start(async () => {
+      // Same reason as the login button: a query string on redirectTo has
+      // to be matched by the Supabase allow list, and a miss is silently
+      // replaced by the Site URL rather than reported.
+      document.cookie =
+        `${NEXT_COOKIE}=${encodeURIComponent("/settings")}; path=/; ` +
+        `max-age=${NEXT_COOKIE_MAX_AGE}; SameSite=Lax`;
+
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           scopes: "https://www.googleapis.com/auth/calendar.readonly",
           queryParams: {
             // Google issues a refresh token only with offline access, and

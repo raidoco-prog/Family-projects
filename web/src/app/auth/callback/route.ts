@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { NEXT_COOKIE, safePath } from "@/lib/next-path";
 
 /**
  * Written with the service-role client on purpose. calendar_connections has
@@ -61,9 +62,13 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   if (!code) return back(origin, "missing_code");
 
-  const rawNext = searchParams.get("next") ?? "/";
-  const next =
-    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  // The cookie is the real carrier; the query string is only still read so
+  // that a link issued by the previous build still lands correctly.
+  const fromCookie = request.cookies.get(NEXT_COOKIE)?.value;
+  const next = safePath(
+    searchParams.get("next") ??
+      (fromCookie ? decodeURIComponent(fromCookie) : null),
+  );
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -78,5 +83,7 @@ export async function GET(request: NextRequest) {
     await storeCalendarConnection(data.user.id, data.user.email, refreshToken);
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  const response = NextResponse.redirect(`${origin}${next}`);
+  response.cookies.delete(NEXT_COOKIE);
+  return response;
 }

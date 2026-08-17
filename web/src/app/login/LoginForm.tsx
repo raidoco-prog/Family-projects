@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { signInWithEmail, type LoginState } from "./actions";
+import { NEXT_COOKIE, NEXT_COOKIE_MAX_AGE } from "@/lib/next-path";
 
 const base =
   "flex h-11 w-full items-center justify-center rounded-xl text-sm font-bold transition disabled:opacity-60";
@@ -44,11 +45,18 @@ export default function LoginForm({
    */
   function signInWithGoogle() {
     startRedirect(async () => {
+      // SameSite=Lax survives the top-level GET that Google sends us back
+      // on, which is exactly the trip this has to outlive.
+      document.cookie =
+        `${NEXT_COOKIE}=${encodeURIComponent(next)}; path=/; ` +
+        `max-age=${NEXT_COOKIE_MAX_AGE}; SameSite=Lax`;
+
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          // Bare, with no query string: see lib/next-path.ts.
+          redirectTo: `${window.location.origin}/auth/callback`,
           // Without this, Google silently reuses the single account already
           // signed in on the device and shows no picker at all. On a phone
           // or tablet set up with a parent's account, every child who opens
