@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/session";
+import { syncCalendars } from "@/lib/gcal";
 
 export interface ActionResult {
   error?: string;
@@ -72,4 +74,46 @@ export async function savePreferences(patch: PreferenceUpdate): Promise<ActionRe
   if (error) return { error: "שמירת ההעדפות נכשלה. נסו שוב." };
   revalidatePath("/settings");
   return {};
+}
+
+
+export interface SyncResult {
+  error?: string;
+  imported?: number;
+  removed?: number;
+}
+
+/**
+ * Runs the calendar sync on demand.
+ *
+ * The cron already does this every quarter hour, but a first connection is
+ * exactly when somebody needs to know whether it worked — and waiting up to
+ * fifteen minutes for silence is not an answer. Being able to press it and
+ * read a number is what makes the setup checkable.
+ *
+ * The admin client is required because calendar_connections is unreadable
+ * from any browser-facing role, so the session is checked here instead.
+ */
+export async function syncCalendarNow(): Promise<SyncResult> {
+  const session = await getSession();
+  if (!session) return { error: EXPIRED };
+
+  try {
+    const db = createAdminClient();
+    const report = await syncCalendars(
+      db,
+      new Date(),
+      session.household.timezone || "Asia/Jerusalem",
+    );
+
+    if (report.connections === 0) {
+      return { error: "היומן לא מחובר. לחצו «חיבור יומן גוגל» קודם." };
+    }
+    if (report.failed > 0) {
+      return { error: "הסנכרון נכשל. הפירוט מופיע בכרטיס למעלה אחרי רענון." };
+    }
+    return { imported: report.upserted, removed: report.deleted };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "הסנכרון נכשל." };
+  }
 }

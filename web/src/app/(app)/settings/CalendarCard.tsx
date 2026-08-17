@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { NEXT_COOKIE, NEXT_COOKIE_MAX_AGE } from "@/lib/next-path";
+import { syncCalendarNow, type SyncResult } from "./actions";
 
 export interface CalendarStatus {
   connected: boolean;
@@ -22,7 +23,17 @@ function whenText(iso: string | null) {
 
 export default function CalendarCard({ status }: { status: CalendarStatus }) {
   const [error, setError] = useState<string | null>(null);
+  const [synced, setSynced] = useState<SyncResult | null>(null);
   const [busy, start] = useTransition();
+
+  function syncNow() {
+    start(async () => {
+      setError(null);
+      const result = await syncCalendarNow();
+      if (result.error) setError(result.error);
+      else setSynced(result);
+    });
+  }
 
   function connect() {
     start(async () => {
@@ -93,6 +104,24 @@ export default function CalendarCard({ status }: { status: CalendarStatus }) {
               </span>
             </div>
           ) : null}
+
+          {synced ? (
+            <p className="rounded-xl bg-accent-pastel p-2.5 text-center text-xs font-bold text-accent">
+              {synced.imported
+                ? `${synced.imported} אירועים סונכרנו`
+                : "אין שינויים חדשים ביומן"}
+              {synced.removed ? ` · ${synced.removed} נמחקו` : ""}
+            </p>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={syncNow}
+            disabled={busy}
+            className="h-9 rounded-xl bg-accent-pastel text-xs font-bold text-accent disabled:opacity-60"
+          >
+            {busy ? "מסנכרן…" : "סנכרון עכשיו"}
+          </button>
 
           <div className="flex gap-2">
             <button
