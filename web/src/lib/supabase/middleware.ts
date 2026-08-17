@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "./config";
+import { NEXT_COOKIE, safePath } from "../next-path";
 
 /**
  * Paths reachable without a session.
@@ -60,6 +61,29 @@ export async function updateSession(request: NextRequest) {
     user = data.user;
   } catch {
     user = null;
+  }
+
+  // Belt and braces for a misconfigured Redirect URL list. When Supabase
+  // cannot match redirectTo it substitutes the Site URL, which lands an
+  // invited member on the app root — and with no member row that is the
+  // "create a household" screen, in the middle of accepting an invitation.
+  // The destination is still in the cookie, so honour it instead.
+  if (user && (pathname === "/" || pathname === "/onboarding")) {
+    const pending = request.cookies.get(NEXT_COOKIE)?.value;
+    const target = pending ? safePath(decodeURIComponent(pending), "") : "";
+    if (target.startsWith("/join/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = target;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Reaching the invite means the rescue above has done its job. Dropping
+  // the cookie here keeps it to a single bounce, so somebody who really
+  // does want to start a household is not sent back a second time.
+  if (pathname.startsWith("/join/") && request.cookies.has(NEXT_COOKIE)) {
+    response.cookies.delete(NEXT_COOKIE);
   }
 
   if (!user && !isPublic(pathname)) {
