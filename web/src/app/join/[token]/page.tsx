@@ -28,6 +28,24 @@ export default async function JoinPage({
         </p>
       </header>
 
+      {/* Which account is about to be bound to this invite. On a shared
+          phone or tablet this is very often not the person holding it,
+          and the invite is single-use — so it has to be said before the
+          button, not after. */}
+      <div className="flex flex-col items-center gap-2 rounded-xl border border-rule bg-surface p-4 text-center">
+        <span className="text-xs text-ink-faint">מחוברים כרגע כ־</span>
+        <b className="break-all text-sm font-bold">{user.email}</b>
+        <form action="/auth/signout" method="post">
+          <input type="hidden" name="next" value={`/join/${token}`} />
+          <button
+            type="submit"
+            className="text-xs font-bold text-accent underline underline-offset-2"
+          >
+            זה לא אני — התחברות עם חשבון אחר
+          </button>
+        </form>
+      </div>
+
       <JoinForm token={token} />
     </main>
   );

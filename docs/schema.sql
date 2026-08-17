@@ -47,6 +47,7 @@ as $$
   select household_id from members where user_id = auth.uid();
 $$;
 
+
 -- ------------------------------------------------------------
 -- 2. יומן ותורים רפואיים
 -- ------------------------------------------------------------
@@ -70,6 +71,9 @@ create table events (
   birthday_for  uuid unique references members(id) on delete cascade,
   -- C9: מזהה יציב של חג מלוח השנה העברי, כדי שסנכרון חוזר יעדכן ולא ישכפל.
   holiday_key   text,
+  -- מזהה האירוע במקור חיצוני, למשל 'gcal:<id>'. אותו תפקיד כמו
+  -- holiday_key, עבור ייבוא מיומן גוגל. ראה gcal-import.sql.
+  external_key  text,
   created_by    uuid references members(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
@@ -466,6 +470,49 @@ create trigger trg_shopping_checked_restock
 -- 6. Row Level Security
 --    כלל אחד לכל הטבלאות: רואים רק את משק הבית שאתה חבר בו.
 -- ------------------------------------------------------------
+--  מי רואה איזה אירוע
+--
+--  ההורים רואים הכל. ילד רואה אירוע שמסומן בשמו, ואירוע שלא
+--  מסומן באיש — כלומר חג, יום הולדת או ארוחה משפחתית.
+--
+--  תור רפואי לעולם אינו «לא מסומן», גם לפני ששורת appointments
+--  נכתבה: הסוג לבדו מספיק כדי להסתיר אותו. בלי זה היה חלון קצר
+--  בין יצירת האירוע לכתיבת הפרטים שבו הוא גלוי לכל הבית, וזה
+--  בדיוק המקרה שבגללו הוגדרה ההפרדה.
+--
+--  SECURITY DEFINER, ולכן RLS אינו חל בתוך הפונקציה עצמה —
+--  אחרת מדיניות על events שקוראת ל-events הייתה נכנסת ללולאה.
+-- ------------------------------------------------------------
+create or replace function can_see_event(p_event_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+      from events e
+      join members me
+        on me.user_id = auth.uid()
+       and me.household_id = e.household_id
+     where e.id = p_event_id
+       and (
+            me.role = 'parent'
+         or exists (select 1 from event_participants p
+                     where p.event_id = e.id and p.member_id = me.id)
+         or exists (select 1 from appointments a
+                     where a.event_id = e.id and a.patient_id = me.id)
+         or (
+              e.kind <> 'appointment'
+              and not exists (select 1 from event_participants p where p.event_id = e.id)
+              and not exists (select 1 from appointments a where a.event_id = e.id)
+            )
+       )
+  );
+$$;
+
+-- ------------------------------------------------------------
 
 alter table households        enable row level security;
 alter table members           enable row level security;
@@ -486,8 +533,14 @@ create policy member_access on members
   for all using (household_id in (select current_household_ids()))
   with check (household_id in (select current_household_ids()));
 
+-- ה-USING מסנן קריאה, עדכון ומחיקה. ה-WITH CHECK נשאר ברמת משק הבית
+-- בכוונה: בזמן ה-INSERT האירוע עדיין חסר סימונים, ובדיקה מחמירה שם
+-- הייתה מונעת מילד ליצור לעצמו תור.
 create policy event_access on events
-  for all using (household_id in (select current_household_ids()))
+  for all using (
+    household_id in (select current_household_ids())
+    and can_see_event(id)
+  )
   with check (household_id in (select current_household_ids()));
 
 create policy task_access on tasks
@@ -504,11 +557,7 @@ create policy shopping_access on shopping_items
 
 -- טבלאות שמגיעות למשק הבית דרך האירוע שלהן
 create policy participant_access on event_participants
-  for all using (
-    event_id in (
-      select id from events where household_id in (select current_household_ids())
-    )
-  )
+  for all using (can_see_event(event_id))
   with check (
     event_id in (
       select id from events where household_id in (select current_household_ids())
@@ -516,11 +565,7 @@ create policy participant_access on event_participants
   );
 
 create policy appointment_access on appointments
-  for all using (
-    event_id in (
-      select id from events where household_id in (select current_household_ids())
-    )
-  )
+  for all using (can_see_event(event_id))
   with check (
     event_id in (
       select id from events where household_id in (select current_household_ids())
@@ -528,11 +573,7 @@ create policy appointment_access on appointments
   );
 
 create policy reminder_access on event_reminders
-  for all using (
-    event_id in (
-      select id from events where household_id in (select current_household_ids())
-    )
-  )
+  for all using (can_see_event(event_id))
   with check (
     event_id in (
       select id from events where household_id in (select current_household_ids())
@@ -759,6 +800,16 @@ declare
 begin
   if auth.uid() is null then
     raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  -- חשבון אחד שייך לשורת בן משפחה אחת, ועל כך שומר האינדקס הייחודי
+  -- על members.user_id. בלי הבדיקה כאן ההתנגשות הייתה מגיעה כ-23505
+  -- מאותו סוג שמסמן «המקום נתפס» — הודעה שמפנה את המשתמש לכיוון
+  -- ההפוך מהבעיה. המקרה השכיח הוא מכשיר משותף: הילד מחובר לגוגל
+  -- של ההורה, ולכן החשבון שמגיע לכאן הוא של ההורה.
+  if exists (select 1 from members where user_id = auth.uid()) then
+    raise exception 'account already linked to a member'
+      using errcode = 'P0003';
   end if;
 
   select * into inv
