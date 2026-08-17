@@ -118,6 +118,13 @@ on conflict do nothing;
 create temporary table gcal_owner as
   select id from members where display_name = 'מאשה';
 
+-- כפילויות שביומן גוגל, שכאן הן שורה אחת. השורה הזאת מנקה אותן אם
+-- הרצת גרסה מוקדמת יותר של הקובץ; על מסד נקי היא לא עושה כלום.
+delete from events where external_key in (
+  'gcal:ov1vn2l99a09fqu201ncje222o',  -- «רופא שיניים», מוזג לד״ר בן שטיינברג
+  'gcal:_74o38cpl711k4ba288o4ab9k'    -- העתק שני של ד״ר ראמי גנאים
+);
+
 insert into events (household_id, created_by, external_key, kind, title,
                     starts_at, ends_at, location)
 select
@@ -143,12 +150,12 @@ from (values
    'שד׳ טום לנטוס 60, קניון נעימי כניסה A קומה 1, נתניה'),
   ('gcal:4pvuohct6m90b89778fem0aa7k', 'appointment', 'ד״ר גולן',
    '2026-11-03 16:49', '2026-11-03 17:49', 'בקעת בית נטופה 25, כפר סבא'),
-  ('gcal:_6133ae236p246b9g610jab9k', 'appointment', 'ד״ר בן שטיינברג',
-   '2026-11-17 17:45', '2026-11-17 18:00',
+  -- ביומן זה שתי שורות באותה שעה בדיוק — «ד״ר בן שטיינברג» בלי סוג,
+  -- ו«רופא שיניים» בלי מקום. שורה אחת שלוקחת מכל אחת את מה שיש בה:
+  -- השם והכתובת מהראשונה, וחלון הזמן הארוך יותר מהשנייה.
+  ('gcal:_6133ae236p246b9g610jab9k', 'appointment', 'רופא שיניים — ד״ר בן שטיינברג',
+   '2026-11-17 17:45', '2026-11-17 18:45',
    'כצנלסון 14, קניון ערים קומה 2, כפר סבא'),
-  -- חופף בשעה לתור הקודם. ייתכן שזה אותו תור שנרשם פעמיים.
-  ('gcal:ov1vn2l99a09fqu201ncje222o', 'appointment', 'רופא שיניים',
-   '2026-11-17 17:45', '2026-11-17 18:45', null),
 
   -- טיפוח. הכותרות היו ברוסית ביומן ותורגמו לעברית.
   ('gcal:vdu20o1m3ocun1qdvq7e7951tg', 'general', 'תספורת וצבע',
@@ -177,8 +184,7 @@ from (values
   ('gcal:_6opj2h1g6coj2ba26cp3cb9k', 'ד״ר ראמי גנאים', null, null, null),
   ('gcal:4pvuohct6m90b89778fem0aa7k', 'ד״ר גולן', null, 'מכבי',
    'ביטול תור: https://landis.maccabi4u.co.il'),
-  ('gcal:_6133ae236p246b9g610jab9k', 'ד״ר בן שטיינברג', null, null, null),
-  ('gcal:ov1vn2l99a09fqu201ncje222o', null, null, null, null)
+  ('gcal:_6133ae236p246b9g610jab9k', 'ד״ר בן שטיינברג', null, null, null)
 ) as v(key, doctor, clinic, hmo, prep)
 join events e on e.external_key = v.key
 on conflict (event_id) do update set
