@@ -21,8 +21,16 @@ function whenText(iso: string | null) {
   }).format(new Date(iso));
 }
 
-export default function CalendarCard({ status }: { status: CalendarStatus }) {
-  const [error, setError] = useState<string | null>(null);
+export default function CalendarCard({
+  status,
+  connectError,
+}: {
+  status: CalendarStatus;
+  connectError?: string;
+}) {
+  // The callback reports a failed grant through the URL, because at that
+  // point there is nowhere in the database to record it.
+  const [error, setError] = useState<string | null>(connectError ?? null);
   const [synced, setSynced] = useState<SyncResult | null>(null);
   const [busy, start] = useTransition();
 
@@ -157,9 +165,19 @@ export default function CalendarCard({ status }: { status: CalendarStatus }) {
       )}
 
       {error ? (
-        <p role="alert" className="break-words text-xs font-semibold text-danger-ink">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="flex flex-col gap-1 rounded-xl bg-danger-pastel p-3"
+        >
+          <b className="text-xs font-bold text-danger-ink">החיבור לא נשמר</b>
+          <span className="break-words text-[0.7rem] text-danger-ink">{error}</span>
+          {/nSUPABASE_SERVICE_ROLE_KEY|service.role/i.test(error) ? (
+            <span className="text-[0.7rem] text-danger-ink">
+              חסר המשתנה SUPABASE_SERVICE_ROLE_KEY ב-Vercel. הוסיפו אותו
+              מ-Supabase → Settings → API, פרסו מחדש, ונסו שוב.
+            </span>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

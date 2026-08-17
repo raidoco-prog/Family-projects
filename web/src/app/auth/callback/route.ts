@@ -8,14 +8,16 @@ import { NEXT_COOKIE, safePath } from "@/lib/next-path";
  * RLS on and no policy at all, so nothing reachable from a browser can read
  * the refresh token back — not even the member it belongs to.
  *
- * A failure here must not break signing in: the user still has a session,
- * they just have no calendar sync, and Settings will say so.
+ * A failure here must not break signing in — the user still has a valid
+ * session — but it must not be silent either. Swallowing it meant Google
+ * granted the permission, the app dropped the token, and the card went on
+ * saying "not connected" with nothing to explain why. Returns the reason.
  */
 async function storeCalendarConnection(
   userId: string,
   email: string | undefined,
   refreshToken: string,
-) {
+): Promise<string | null> {
   try {
     const db = createAdminClient();
     const { data: member } = await db
@@ -23,9 +25,9 @@ async function storeCalendarConnection(
       .select("id")
       .eq("user_id", userId)
       .maybeSingle<{ id: string }>();
-    if (!member) return;
+    if (!member) return "no member row for this account";
 
-    await db.from("calendar_connections").upsert(
+    const { error } = await db.from("calendar_connections").upsert(
       {
         member_id: member.id,
         google_email: email ?? null,
@@ -36,8 +38,10 @@ async function storeCalendarConnection(
       },
       { onConflict: "member_id" },
     );
-  } catch {
-    // No service-role key configured, or the table is not there yet.
+    return error ? error.message : null;
+  } catch (err) {
+    // Overwhelmingly this is a missing SUPABASE_SERVICE_ROLE_KEY.
+    return err instanceof Error ? err.message : "could not store the grant";
   }
 }
 
@@ -79,11 +83,25 @@ export async function GET(request: NextRequest) {
   // Supabase does not persist it. If it is not captured here it is gone,
   // and the calendar sync has nothing to run on.
   const refreshToken = data.session?.provider_refresh_token;
+
+  let calendarError: string | null = null;
   if (refreshToken && data.user) {
-    await storeCalendarConnection(data.user.id, data.user.email, refreshToken);
+    calendarError = await storeCalendarConnection(
+      data.user.id,
+      data.user.email,
+      refreshToken,
+    );
+  } else if (next === "/settings") {
+    // Settings is where the calendar button lives, so arriving from there
+    // with no refresh token means the grant did not include offline access
+    // — worth saying, rather than returning to an unchanged screen.
+    calendarError = "Google returned no refresh token";
   }
 
-  const response = NextResponse.redirect(`${origin}${next}`);
+  const target = new URL(`${origin}${next}`);
+  if (calendarError) target.searchParams.set("calendar_error", calendarError);
+
+  const response = NextResponse.redirect(target);
   response.cookies.delete(NEXT_COOKIE);
   return response;
 }
