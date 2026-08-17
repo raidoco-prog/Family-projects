@@ -70,6 +70,31 @@
 השינוי נכנס לתוקף מיד; אין צורך לפרוס מחדש ב-Vercel, כי שום דבר מזה לא
 נכנס לקוד.
 
+לזיהוי בלבד — כלומר להתחברות — **אין צורך להפעיל אף API**. זה משתנה ברגע
+שרוצים לקרוא את היומן; ראה למטה.
+
+#### סנכרון יומן גוגל
+
+נדרש רק אם רוצים שהיומן האישי יזרום לאפליקציה. ראה `calendar-sync.sql`
+ושלב 7 ב-[`PLAN.md`](./PLAN.md).
+
+1. **הפעל את Google Calendar API** —
+   [console.cloud.google.com/apis/library/calendar-json.googleapis.com](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com)
+   → **Enable**.
+   **זה חייב לקרות ראשון.** מסך ההרשאות מציג רק scopes של APIs מופעלים,
+   ולכן בלי זה `calendar.readonly` פשוט לא קיים ברשימה — אין הודעת שגיאה,
+   הוא רק חסר. הוספה ידנית של ה-scope בלי הפעלת ה-API נותנת הרשאה שגוגל
+   מסרבת לכבד בפועל: `Google Calendar API has not been used in project…`.
+2. **Data Access → Add or remove scopes** → סמן
+   `https://www.googleapis.com/auth/calendar.readonly` → **Update** →
+   **Save**.
+3. הוסף ב-Vercel את `GOOGLE_CLIENT_ID` ואת `GOOGLE_CLIENT_SECRET` — אותו
+   זוג שכבר הודבק ב-Supabase — ו**פרוס מחדש**.
+4. באפליקציה: **הגדרות → «חיבור יומן גוגל»**, ואז **«סנכרון עכשיו»**.
+
+ההרשאה מבוקשת ממסך ההגדרות ולא מההתחברות, בכוונה: אחרת כל ילד היה נדרש
+לתת גישה ליומן שלו רק כדי להיכנס.
+
 ### 2. Vercel
 
 1. חבר את ריפוזיטורי ה-GitHub ב-[vercel.com](https://vercel.com). Next.js מזוהה
