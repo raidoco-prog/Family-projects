@@ -171,7 +171,7 @@ export default function CalendarCard({
         >
           <b className="text-xs font-bold text-danger-ink">החיבור לא נשמר</b>
           <span className="break-words text-[0.7rem] text-danger-ink">{error}</span>
-          {/nSUPABASE_SERVICE_ROLE_KEY|service.role/i.test(error) ? (
+          {/SUPABASE_SERVICE_ROLE_KEY|service[ _-]?role/i.test(error) ? (
             <span className="text-[0.7rem] text-danger-ink">
               חסר המשתנה SUPABASE_SERVICE_ROLE_KEY ב-Vercel. הוסיפו אותו
               מ-Supabase → Settings → API, פרסו מחדש, ונסו שוב.
