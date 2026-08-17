@@ -16,7 +16,12 @@ export interface Preferences {
   quiet_to: string;
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ calendar_error?: string }>;
+}) {
+  const { calendar_error: calendarError } = await searchParams;
   const session = await getSession();
   if (!session) return null;
 
@@ -46,6 +51,7 @@ export default async function SettingsPage() {
         vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
       />
       <CalendarCard
+        connectError={calendarError}
         status={
           calendar ?? {
             connected: false,
