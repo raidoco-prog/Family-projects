@@ -20,6 +20,22 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Run the server code beside the database.
+ *
+ * Supabase is in eu-central-1 (Frankfurt) — chosen because it is the
+ * closest region to Israel. Vercel, told nothing, places functions in its
+ * own default region, which is nowhere near it. Every page render makes
+ * several *serial* Supabase calls, so a misplaced function pays that
+ * crossing once per call, not once per page.
+ *
+ * fra1 is Vercel's Frankfurt region: the same city as the database. The
+ * user is a little further from the function and the function is much
+ * closer to the data, which is the trade that wins when one page is
+ * several queries deep.
+ */
+export const preferredRegion = "fra1";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
