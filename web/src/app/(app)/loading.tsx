@@ -19,7 +19,14 @@ function Block({ className = "" }: { className?: string }) {
 
 export default function Loading() {
   return (
-    <div aria-busy="true" aria-live="polite" className="flex flex-col gap-4">
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      // `deferred` keeps this invisible for the first fraction of a second.
+      // Most navigations now finish inside that window and show nothing,
+      // which is the point: a skeleton that flashes is worse than none.
+      className="deferred flex flex-col gap-4"
+    >
       <span className="sr-only">טוען…</span>
 
       <Block className="h-5 w-32" />

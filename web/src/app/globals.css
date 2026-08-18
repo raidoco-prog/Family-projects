@@ -140,11 +140,37 @@ button[aria-disabled="true"]:active {
   border-radius: 6px;
 }
 
+/* ---------------------------------------------------------------
+   A skeleton earns its place only once the wait is long enough to
+   notice. Below that it appears and vanishes inside a couple of
+   frames, which reads as a flicker — worse than the still screen it
+   was meant to replace.
+
+   The delay does the deciding, with no JavaScript and no state: the
+   fill mode holds it invisible, so a navigation that resolves first
+   never shows it at all.
+   --------------------------------------------------------------- */
+@keyframes appear-after-a-wait {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.deferred {
+  animation: appear-after-a-wait 160ms ease 280ms both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* Without this an infinite animation does not stop — it runs a whole
+       cycle every hundredth of a millisecond. The pulse on the loading
+       skeleton strobed for exactly this reason, and the rule that was
+       meant to calm motion was what made it violent. The delay above is
+       deliberately left alone, so a deferred skeleton still waits its
+       turn and then simply appears. */
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
