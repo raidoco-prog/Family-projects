@@ -9,63 +9,70 @@
  * Two constraints shape it:
  *
  *  - Android maskable icons may be cropped to a circle, and the manifest
- *    declares the 512 maskable. Everything therefore sits inside a scaled
- *    group that clears that crop with room to spare.
+ *    declares the 512 maskable. Everything sits inside a scaled group that
+ *    clears that crop.
  *  - iOS applies its own rounded-square mask and adds no padding, so the
- *    margin has to be part of the artwork.
+ *    margin has to be part of the artwork. The background is drawn to the
+ *    full square and the mask does the rounding.
  *
- * A cartoon has more parts than a silhouette, and an icon is mostly seen
- * at about 60px. The parts are sized accordingly: the roof, the door and
- * the two lit windows carry the whole reading, and the smoke is decoration
- * that is allowed to disappear.
+ * An icon is mostly seen at about 60px, so the parts are ranked: the roof
+ * and the door carry the reading, the window panes and the smoke are
+ * detail that is allowed to dissolve.
  */
 import sharp from "sharp";
 
-const SKY = "#D3E4F3"; // --accent-pastel, the app's own blue
-const GRASS = "#C4E0BE";
-const ROOF = "#D97757";
-const ROOF_DARK = "#B85C40";
-const WALL = "#FFF8EE";
-const DOOR = "#3A6693";
-const GLOW = "#F6D97A";
-const LINE = "#2B3242"; // --ink
-const SMOKE = "#FFFFFF";
+const PAPER = "#F7F6F1"; // warm off-white ground
+const LINE = "#2B4A80"; // navy, used for every outline
+const WALL = "#AED4EE";
+const ROOF = "#C9593C";
+const DOOR = "#F5CE3C";
+const GLASS = "#EDF4FB";
+const SMOKE = "#C9DCEE";
 
-function svg(size) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="${SKY}"/>
+const OUT = 11; // outline weight, in the 512 grid
 
-  <g transform="translate(256 256) scale(0.86) translate(-256 -256)"
-     stroke="${LINE}" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+function svg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="${PAPER}"/>
 
-    <!-- Ground. Runs off every edge on purpose: the sides and bottom fall
-         outside the canvas, so only the top curve is ever drawn and it
-         reads as ground rather than as a slab sitting on the square. -->
-    <path d="M-120 402 Q256 362 632 402 L632 640 L-120 640 Z" fill="${GRASS}"/>
+  <g transform="translate(256 256) scale(0.96) translate(-256 -256)"
+     stroke="${LINE}" stroke-width="${OUT}"
+     stroke-linejoin="round" stroke-linecap="round">
 
-    <!-- Smoke, largest first. Pure decoration: at icon size it reads as a
-         soft edge, and nothing is lost when it does. -->
-    <circle cx="356" cy="128" r="15" fill="${SMOKE}"/>
-    <circle cx="330" cy="92"  r="20" fill="${SMOKE}"/>
-    <circle cx="292" cy="62"  r="26" fill="${SMOKE}"/>
+    <!-- Chimney first, so the roof covers where the two meet and that
+         join never has to be drawn. -->
+    <path d="M336 148 L380 148 Q392 148 392 160 L392 300 L336 300 Z"
+          fill="${ROOF}"/>
 
-    <!-- Chimney, behind the roof so the join needs no drawing. -->
-    <path d="M330 152 L370 152 L370 240 L330 240 Z" fill="${ROOF_DARK}"/>
+    <!-- Walls: a pentagon with rounded feet. The top point is hidden by
+         the roof, so only the shoulders and the base are ever seen. -->
+    <path d="M256 168 L364 272 L364 386 Q364 412 338 412 L174 412
+             Q148 412 148 386 L148 272 Z"
+          fill="${WALL}"/>
 
-    <!-- Walls -->
-    <path d="M136 258 L376 258 L376 404 L136 404 Z" fill="${WALL}"/>
+    <!-- Roof as one thick round-capped chevron. Drawn twice — a wide navy
+         pass, then the colour on top — which is what gives the overhang
+         its outlined, rounded ends. -->
+    <path d="M128 292 L256 164 L384 292" fill="none"
+          stroke="${LINE}" stroke-width="${40 + OUT * 2}"/>
+    <path d="M128 292 L256 164 L384 292" fill="none"
+          stroke="${ROOF}" stroke-width="40"/>
 
-    <!-- Roof, with an overhang on both sides. The single most recognisable
-         part of a house at small size, so it gets the strongest colour. -->
-    <path d="M256 146 L412 262 L100 262 Z" fill="${ROOF}"/>
+    <!-- One window, four panes. The bars are thinner than the outlines:
+         at small sizes they blur into a pale square, which is the right
+         thing for them to become. -->
+    <rect x="186" y="300" width="76" height="72" rx="12" fill="${GLASS}"/>
+    <path d="M224 300 L224 372 M186 336 L262 336" stroke-width="7"/>
 
-    <!-- Two lit windows and a door: the pattern the eye reads as a home. -->
-    <rect x="150" y="292" width="60" height="60" rx="10" fill="${GLOW}"/>
-    <rect x="302" y="292" width="60" height="60" rx="10" fill="${GLOW}"/>
-
-    <path d="M226 404 L226 330 Q226 304 256 304 Q286 304 286 330 L286 404 Z"
+    <!-- Door, meeting the base so the house sits on the ground. -->
+    <path d="M288 412 L288 322 Q288 308 302 308 L332 308 Q346 308 346 322
+             L346 412 Z"
           fill="${DOOR}"/>
-    <circle cx="272" cy="364" r="7" fill="${GLOW}" stroke="none"/>
+    <circle cx="302" cy="366" r="7" fill="${LINE}" stroke="none"/>
+
+    <!-- A single curl of smoke. Pure decoration. -->
+    <path d="M362 116 Q340 100 354 86 Q368 72 350 60" fill="none"
+          stroke="${SMOKE}" stroke-width="13"/>
   </g>
 </svg>`;
 }
@@ -75,6 +82,6 @@ for (const [file, px] of [
   ["public/icon-192.png", 192],
   ["public/apple-touch-icon.png", 180],
 ]) {
-  const info = await sharp(Buffer.from(svg(px))).resize(px, px).png().toFile(file);
+  const info = await sharp(Buffer.from(svg())).resize(px, px).png().toFile(file);
   console.log(`${file.padEnd(30)} ${info.width}x${info.height}  ${info.size} bytes`);
 }
