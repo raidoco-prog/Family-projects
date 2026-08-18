@@ -3,63 +3,78 @@
  *
  *   node scripts/make-icons.mjs
  *
- * Kept as a script rather than three checked-in blobs so the shape can be
- * adjusted in one place and the sizes stay in step. Colours are the app's
- * own tokens from globals.css, so the icon and the app agree.
+ * Kept as a script rather than three checked-in blobs so the drawing is
+ * edited in one place and the sizes never drift apart.
  *
- * Two constraints drive the drawing:
+ * Two constraints shape it:
  *
- *  - Android maskable icons may be cropped to a circle, and anything
- *    outside the middle 80% can be cut. The house sits well inside that.
- *  - iOS applies its own rounded-square mask and adds no padding of its
- *    own, so the margin has to be part of the artwork.
+ *  - Android maskable icons may be cropped to a circle, and the manifest
+ *    declares the 512 maskable. Everything therefore sits inside a scaled
+ *    group that clears that crop with room to spare.
+ *  - iOS applies its own rounded-square mask and adds no padding, so the
+ *    margin has to be part of the artwork.
+ *
+ * A cartoon has more parts than a silhouette, and an icon is mostly seen
+ * at about 60px. The parts are sized accordingly: the roof, the door and
+ * the two lit windows carry the whole reading, and the smoke is decoration
+ * that is allowed to disappear.
  */
 import sharp from "sharp";
-import { mkdir } from "node:fs/promises";
 
-const GROUND = "#D3E4F3"; // --accent-pastel
-const INK = "#2B3242"; // --ink
-const ACCENT = "#3A6693"; // --accent
-const WHITE = "#FFFFFF";
+const SKY = "#D3E4F3"; // --accent-pastel, the app's own blue
+const GRASS = "#C4E0BE";
+const ROOF = "#D97757";
+const ROOF_DARK = "#B85C40";
+const WALL = "#FFF8EE";
+const DOOR = "#3A6693";
+const GLOW = "#F6D97A";
+const LINE = "#2B3242"; // --ink
+const SMOKE = "#FFFFFF";
 
-/** One square drawing, at any size, in the app's colours. */
 function svg(size) {
-  const s = (n) => (n * size) / 512;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="${GROUND}"/>
+  <rect width="512" height="512" fill="${SKY}"/>
 
-  <!-- Scaled to clear Android's circular maskable crop. At full size the
-       eaves and the bottom corners are shaved by it. -->
-  <g transform="translate(256 256) scale(0.87) translate(-256 -256)">
+  <g transform="translate(256 256) scale(0.86) translate(-256 -256)"
+     stroke="${LINE}" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
 
-  <!-- Roof and body as one silhouette, so the shape reads at 60px where
-       separate strokes would smear into each other. -->
-  <path d="M256 104 L436 252 L400 252 L400 404 Q400 420 384 420 L128 420
-           Q112 420 112 404 L112 252 L76 252 Z"
-        fill="${INK}"/>
+    <!-- Ground. Runs off every edge on purpose: the sides and bottom fall
+         outside the canvas, so only the top curve is ever drawn and it
+         reads as ground rather than as a slab sitting on the square. -->
+    <path d="M-120 402 Q256 362 632 402 L632 640 L-120 640 Z" fill="${GRASS}"/>
 
-  <!-- Chimney. Drawn before nothing and after the roof so it reads as
-       rising from the slope rather than floating beside it. -->
-  <path d="M330 84 L372 84 Q380 84 380 92 L380 194 L330 152 Z" fill="${INK}"/>
+    <!-- Smoke, largest first. Pure decoration: at icon size it reads as a
+         soft edge, and nothing is lost when it does. -->
+    <circle cx="356" cy="128" r="15" fill="${SMOKE}"/>
+    <circle cx="330" cy="92"  r="20" fill="${SMOKE}"/>
+    <circle cx="292" cy="62"  r="26" fill="${SMOKE}"/>
 
-  <!-- One lit window, and nothing else. A door plus a window plus glazing
-       bars all turn to mush at 60px; a single bright square survives. -->
-  <rect x="214" y="292" width="84" height="84" rx="14" fill="${WHITE}"/>
-  <rect x="228" y="306" width="56" height="56" rx="8" fill="${ACCENT}"/>
+    <!-- Chimney, behind the roof so the join needs no drawing. -->
+    <path d="M330 152 L370 152 L370 240 L330 240 Z" fill="${ROOF_DARK}"/>
 
+    <!-- Walls -->
+    <path d="M136 258 L376 258 L376 404 L136 404 Z" fill="${WALL}"/>
+
+    <!-- Roof, with an overhang on both sides. The single most recognisable
+         part of a house at small size, so it gets the strongest colour. -->
+    <path d="M256 146 L412 262 L100 262 Z" fill="${ROOF}"/>
+
+    <!-- Two lit windows and a door: the pattern the eye reads as a home. -->
+    <rect x="150" y="292" width="60" height="60" rx="10" fill="${GLOW}"/>
+    <rect x="302" y="292" width="60" height="60" rx="10" fill="${GLOW}"/>
+
+    <path d="M226 404 L226 330 Q226 304 256 304 Q286 304 286 330 L286 404 Z"
+          fill="${DOOR}"/>
+    <circle cx="272" cy="364" r="7" fill="${GLOW}" stroke="none"/>
   </g>
-</svg>`.replace("width=\"512\" height=\"512\" viewBox", `width="${s(512)}" height="${s(512)}" viewBox`);
+</svg>`;
 }
 
-const targets = [
+for (const [file, px] of [
   ["public/icon-512.png", 512],
   ["public/icon-192.png", 192],
   ["public/apple-touch-icon.png", 180],
-];
-
-await mkdir("public", { recursive: true });
-
-for (const [file, size] of targets) {
-  const info = await sharp(Buffer.from(svg(size))).png().toFile(file);
+]) {
+  const info = await sharp(Buffer.from(svg(px))).resize(px, px).png().toFile(file);
   console.log(`${file.padEnd(30)} ${info.width}x${info.height}  ${info.size} bytes`);
 }
