@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -34,18 +35,32 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname();
 
+  // The tab a finger just landed on, held until the route catches up.
+  //
+  // Each page is server-rendered, so the highlight used to move only once
+  // the new page came back — a few hundred milliseconds of a tap that
+  // appeared to do nothing, which is the single place this app felt most
+  // unresponsive. Showing the destination immediately is a promise the
+  // navigation then keeps.
+  const [tapped, setTapped] = useState<string | null>(null);
+  useEffect(() => setTapped(null), [pathname]);
+
   return (
     <nav
       aria-label="ניווט ראשי"
       className="grid shrink-0 grid-cols-5 border-t border-rule bg-surface pb-[env(safe-area-inset-bottom)]"
     >
       {TABS.map((tab) => {
-        const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        const onRoute = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        // While a tap is in flight it, and only it, looks selected —
+        // otherwise two tabs would be lit at once.
+        const active = tapped ? tapped === tab.href : onRoute;
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            aria-current={active ? "page" : undefined}
+            onClick={() => setTapped(tab.href)}
+            aria-current={onRoute ? "page" : undefined}
             className={`relative flex flex-col items-center gap-0.5 px-1 pb-2.5 pt-2 text-[0.66rem] font-semibold ${
               active ? "text-accent" : "text-ink-faint"
             }`}
