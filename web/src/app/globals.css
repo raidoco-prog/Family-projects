@@ -94,6 +94,46 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ---------------------------------------------------------------
+   Press feedback.
+
+   body sets -webkit-tap-highlight-color: transparent, which removes the
+   grey flash iOS draws when you touch a control. Nothing replaced it:
+   across the app there were 64 buttons and links and not one :active
+   rule, so a tap produced no signal at all until the server answered.
+   On a phone that reads as an app that ignores you.
+
+   Done here rather than at 64 call sites so every control behaves the
+   same, including ones added later. Tailwind's `transition` utility
+   already covers transform and filter, so components that carry it keep
+   their own timing and the rest get one here.
+
+   touch-action: manipulation drops the double-tap-to-zoom wait that
+   Safari otherwise keeps before it will admit a tap was a tap.
+   --------------------------------------------------------------- */
+button,
+a,
+summary,
+[role="button"] {
+  touch-action: manipulation;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+button:active,
+a:active,
+summary:active,
+[role="button"]:active {
+  transform: scale(0.97);
+  filter: brightness(0.94);
+}
+
+/* A control that cannot act should not answer as though it can. */
+button:disabled:active,
+button[aria-disabled="true"]:active {
+  transform: none;
+  filter: none;
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
