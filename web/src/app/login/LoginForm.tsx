@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { signInWithEmail, type LoginState } from "./actions";
 import { NEXT_COOKIE, NEXT_COOKIE_MAX_AGE } from "@/lib/next-path";
+import { explainAuthError } from "@/lib/auth-errors";
 
 const base =
   "flex h-11 w-full items-center justify-center rounded-xl text-sm font-bold transition disabled:opacity-60";
@@ -81,6 +82,7 @@ export default function LoginForm({
   }
 
   const error = googleError ?? emailState.error;
+  const explained = error ? explainAuthError(error) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -111,17 +113,46 @@ export default function LoginForm({
           className="h-11 rounded-xl border border-rule bg-surface px-3 text-sm text-ink placeholder:text-ink-faint"
         />
         <Submit>שלחו לי קישור כניסה</Submit>
+        {/* Said plainly, because the alternative is discovering it as a
+            failure. The built-in mailer allows a few messages an hour and
+            in a new project delivers only to the project's own members —
+            so for everyone else this route is a dead end, and the button
+            above is the one that works. */}
+        <p className="text-center text-[0.7rem] leading-relaxed text-ink-faint">
+          הקישור במייל מוגבל לכמה שליחות בשעה. אם יש לכם חשבון גוגל,
+          הכפתור למעלה מהיר ואמין יותר.
+        </p>
       </form>
 
-      {error ? (
+      {explained ? (
         <div
           role="alert"
-          className="flex flex-col gap-1 rounded-xl bg-danger-pastel p-3 text-center"
+          className="flex flex-col gap-2 rounded-xl bg-danger-pastel p-3 text-center"
         >
-          <b className="text-sm font-bold text-danger-ink">ההתחברות נכשלה</b>
-          {/* The raw reason. Ugly, English, and the only thing that makes a
-              failed login fixable instead of mysterious. */}
-          <span className="break-words text-xs text-danger-ink">{error}</span>
+          <b className="text-sm font-bold text-danger-ink">{explained.message}</b>
+
+          {explained.hint ? (
+            <span className="text-xs text-danger-ink">{explained.hint}</span>
+          ) : null}
+
+          {/* When Google would have worked, put it within reach rather than
+              asking somebody to find their way back up the screen. */}
+          {explained.suggestGoogle ? (
+            <button
+              type="button"
+              onClick={signInWithGoogle}
+              disabled={redirecting}
+              className="h-10 rounded-xl bg-surface text-sm font-bold text-accent disabled:opacity-60"
+            >
+              המשך עם גוגל
+            </button>
+          ) : null}
+
+          {/* The original, kept small. It is what makes the next report
+              diagnosable, and it is not what the reader needs first. */}
+          <span className="break-words text-[0.68rem] text-danger-ink/70">
+            {error}
+          </span>
         </div>
       ) : null}
     </div>
