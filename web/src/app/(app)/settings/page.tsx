@@ -2,6 +2,7 @@ import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import SettingsBoard from "./SettingsBoard";
 import CalendarCard, { type CalendarStatus } from "./CalendarCard";
+import VapidSetup from "./VapidSetup";
 
 export interface Preferences {
   member_id: string;
@@ -50,6 +51,10 @@ export default async function SettingsPage({
         deviceCount={deviceCount ?? 0}
         vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
       />
+      {/* Only when the key is genuinely missing — which is exactly when
+          somebody is stuck on it, and never once it is configured. */}
+      {process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ? null : <VapidSetup />}
+
       <CalendarCard
         connectError={calendarError}
         status={
