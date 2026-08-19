@@ -71,7 +71,64 @@ function Field({ name, value }: { name: string; value: string }) {
   );
 }
 
-export default function VapidSetup() {
+export interface EnvSeen {
+  publicKey: boolean;
+  privateKey: boolean;
+  cronSecret: boolean;
+}
+
+/**
+ * What the running server can see, and what that combination means.
+ *
+ * On Vercel an environment variable is bound when a deployment is built.
+ * Saving one in the dashboard changes nothing that is already running —
+ * only the next deployment picks it up. That is why "I added the keys and
+ * it still says they are missing" is the expected result rather than a
+ * surprise, and why saying which names arrived is worth more than
+ * repeating that one is absent.
+ */
+function Diagnosis({ seen }: { seen: EnvSeen }) {
+  const rows: [string, boolean][] = [
+    ["NEXT_PUBLIC_VAPID_PUBLIC_KEY", seen.publicKey],
+    ["VAPID_PRIVATE_KEY", seen.privateKey],
+    ["CRON_SECRET", seen.cronSecret],
+  ];
+  const none = rows.every(([, ok]) => !ok);
+  const some = rows.some(([, ok]) => ok);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-sunk p-3">
+      <b className="text-[0.74rem] font-bold text-ink-soft">
+        מה השרת רואה כרגע
+      </b>
+
+      <ul className="flex flex-col gap-1">
+        {rows.map(([name, ok]) => (
+          <li key={name} className="flex items-center justify-between gap-2">
+            <code className="text-[0.62rem] text-ink-soft" dir="ltr">
+              {name}
+            </code>
+            <span
+              className={`text-[0.7rem] font-bold ${ok ? "text-accent" : "text-danger-ink"}`}
+            >
+              {ok ? "✓ קיים" : "✗ חסר"}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="text-[0.72rem] leading-relaxed text-ink-soft">
+        {none
+          ? "אף אחד מהם לא הגיע. אם כבר הוספתם אותם ב-Vercel — חסר Redeploy: משתנה נקבע בזמן הבנייה, ופריסה שכבר רצה לא מכירה אותו."
+          : some && !seen.publicKey
+            ? "השאר הגיעו, וזה דווקא אומר שהפריסה עדכנית. בדקו את השם של החסר — הוא חייב להיות בדיוק NEXT_PUBLIC_VAPID_PUBLIC_KEY, כולל הקידומת."
+            : "חלק הגיעו. השלימו את החסרים ופרסו מחדש."}
+      </p>
+    </div>
+  );
+}
+
+export default function VapidSetup({ seen }: { seen: EnvSeen }) {
   const [pair, setPair] = useState<Pair | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -124,6 +181,8 @@ export default function VapidSetup() {
           במכשיר שלך ולא נשלח לשום מקום.
         </p>
       </header>
+
+      <Diagnosis seen={seen} />
 
       {pair ? (
         <>
