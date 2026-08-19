@@ -41,11 +41,42 @@ export async function pushState(): Promise<PushState> {
   if (isIos() && !isStandalone()) return "needs-install";
   if (Notification.permission === "denied") return "denied";
   if (Notification.permission === "granted") {
-    const reg = await navigator.serviceWorker.getRegistration();
-    const sub = await reg?.pushManager.getSubscription();
-    return sub ? "granted" : "available";
+    return (await currentSubscription()) ? "granted" : "available";
   }
   return "available";
+}
+
+export interface DeviceSubscription {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+function read(sub: PushSubscription | null | undefined): DeviceSubscription | null {
+  if (!sub) return null;
+  const json = sub.toJSON() as {
+    endpoint?: string;
+    keys?: { p256dh?: string; auth?: string };
+  };
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return null;
+  return { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth };
+}
+
+/**
+ * What this device is subscribed as, if anything.
+ *
+ * A browser keeps its subscription across visits and across sign-ins, and
+ * it does not care whether the server ever heard about it. That gap is
+ * what let this screen say "notifications on" over "0 devices registered":
+ * two answers from two different places, neither wrong on its own. Reading
+ * the subscription back out is what makes the two comparable — and the
+ * values here are the same ones the server needs, so the gap can be
+ * closed rather than only reported.
+ */
+export async function currentSubscription(): Promise<DeviceSubscription | null> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return read(await reg?.pushManager.getSubscription());
 }
 
 /**
@@ -77,7 +108,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 export interface SubscribeResult {
   ok: boolean;
   error?: string;
-  subscription?: { endpoint: string; p256dh: string; auth: string };
+  subscription?: DeviceSubscription;
 }
 
 export async function subscribeToPush(vapidPublicKey: string): Promise<SubscribeResult> {
@@ -92,20 +123,31 @@ export async function subscribeToPush(vapidPublicKey: string): Promise<Subscribe
       return { ok: false, error: "ההרשאה נדחתה. אפשר לשנות בהגדרות הדפדפן." };
     }
 
-    const sub = await reg.pushManager.subscribe({
+    const options: PushSubscriptionOptionsInit = {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
-    });
+    };
 
-    const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) {
-      return { ok: false, error: "המנוי נוצר חלקית. נסו שוב." };
+    let sub: PushSubscription;
+    try {
+      sub = await reg.pushManager.subscribe(options);
+    } catch (err) {
+      // A subscription already exists on this device under a different
+      // application key. Browsers will not re-key one in place — they
+      // raise InvalidStateError — and this app generated its key pair
+      // after some devices had already subscribed, so those devices are
+      // stuck on a key nothing signs with any more. The old subscription
+      // is worthless: drop it and make a current one.
+      if ((err as Error)?.name !== "InvalidStateError") throw err;
+      const stale = await reg.pushManager.getSubscription();
+      await stale?.unsubscribe();
+      sub = await reg.pushManager.subscribe(options);
     }
 
-    return {
-      ok: true,
-      subscription: { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
-    };
+    const subscription = read(sub);
+    if (!subscription) return { ok: false, error: "המנוי נוצר חלקית. נסו שוב." };
+
+    return { ok: true, subscription };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "ההרשמה נכשלה." };
   }

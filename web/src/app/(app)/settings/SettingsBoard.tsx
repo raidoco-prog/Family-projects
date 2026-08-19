@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  currentSubscription,
   isIos,
   pushState,
   subscribeToPush,
@@ -58,24 +59,62 @@ function Toggle({
 export default function SettingsBoard({
   memberName,
   preferences,
-  deviceCount,
+  endpoints,
   vapidPublicKey,
 }: {
   memberName: string;
   preferences: Preferences | null;
-  deviceCount: number;
+  endpoints: string[];
   vapidPublicKey: string;
 }) {
   const router = useRouter();
   const [prefs, setPrefs] = useState(preferences);
   const [state, setState] = useState<PushState | null>(null);
-  const [devices, setDevices] = useState(deviceCount);
+  const [devices, setDevices] = useState(endpoints.length);
   const [error, setError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
 
+  const known = endpoints.join("\n");
+
   useEffect(() => {
-    void pushState().then(setState);
-  }, []);
+    let cancelled = false;
+
+    void (async () => {
+      const s = await pushState();
+      if (cancelled) return;
+      setState(s);
+      if (s !== "granted") return;
+
+      // The browser can be subscribed while the server has never heard of
+      // it: the registration could fail on its own, and a subscription
+      // outlives both sign-outs and any reset of the family's accounts.
+      // That is what let this screen say "notifications on" above
+      // "0 devices registered" — and it is not something to report, since
+      // everything needed to repair it is already here.
+      const sub = await currentSubscription();
+      if (cancelled) return;
+      if (!sub) {
+        setState("available");
+        return;
+      }
+      if (known.split("\n").includes(sub.endpoint)) return;
+
+      const saved = await savePushSubscription({
+        ...sub,
+        userAgent: navigator.userAgent,
+      });
+      if (cancelled) return;
+      if (saved.error) setError(saved.error);
+      else {
+        setDevices(saved.devices ?? endpoints.length + 1);
+        router.refresh();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [known, endpoints.length, router]);
 
   function patch(update: PreferenceUpdate) {
     if (!prefs) return;
@@ -106,7 +145,7 @@ export default function SettingsBoard({
         setError(saved.error);
         return;
       }
-      setDevices((d) => d + 1);
+      setDevices((d) => saved.devices ?? d + 1);
       setState("granted");
       router.refresh();
     });

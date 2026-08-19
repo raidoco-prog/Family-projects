@@ -43,16 +43,19 @@ export default async function SettingsPage({
   };
 
   const supabase = await createClient();
-  const [{ data: prefs }, { count: deviceCount }, { data: calendar }] =
+  const [{ data: prefs }, { data: devices }, { data: calendar }] =
     await Promise.all([
     supabase
       .from("notification_preferences")
       .select("*")
       .eq("member_id", session.member.id)
       .maybeSingle<Preferences>(),
+    // The endpoints themselves, not a count. A count cannot answer the
+    // question that matters here — whether *this* device is among them —
+    // and that question is what the screen was getting wrong.
     supabase
       .from("push_subscriptions")
-      .select("id", { count: "exact", head: true })
+      .select("endpoint")
       .eq("member_id", session.member.id),
     // calendar_connections is unreadable from a browser by design; this
     // function returns only the status fields, never the refresh token.
@@ -64,7 +67,7 @@ export default async function SettingsPage({
       <SettingsBoard
         memberName={session.member.display_name}
         preferences={prefs}
-        deviceCount={deviceCount ?? 0}
+        endpoints={(devices ?? []).map((d: { endpoint: string }) => d.endpoint)}
         vapidPublicKey={vapidPublicKey}
       />
       {/* Only when the key is genuinely missing — which is exactly when

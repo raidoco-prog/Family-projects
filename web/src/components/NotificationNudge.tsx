@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  currentSubscription,
   isIos,
   pushSnoozeUntil,
   pushState,
@@ -9,6 +10,7 @@ import {
   subscribeToPush,
   type PushState,
 } from "@/lib/push";
+import { savePushSubscription } from "@/app/(app)/settings/actions";
 
 /**
  * Brings the one unavoidable tap to the family instead of hiding it.
@@ -53,9 +55,21 @@ export default function NotificationNudge({
     // Nothing is worth showing before we know the answer, and the answer
     // is only knowable in the browser.
     if (!vapidPublicKey || snoozedNow()) return;
-    void pushState().then((s) => {
+    void pushState().then(async (s) => {
       setState(s);
       setHidden(!shouldAskAboutPush(s));
+
+      // A device this prompt already turned on was never registered with
+      // the server, because this prompt used to stop at the browser. Those
+      // devices show as subscribed and receive nothing, and their owners
+      // have no reason to suspect it — they pressed the button and it went
+      // away. Re-registering is idempotent and costs one call, so the
+      // repair happens where the damage was done.
+      if (s !== "granted") return;
+      const sub = await currentSubscription();
+      if (sub) {
+        void savePushSubscription({ ...sub, userAgent: navigator.userAgent });
+      }
     });
   }, [vapidPublicKey]);
 
@@ -71,13 +85,26 @@ export default function NotificationNudge({
   async function enable() {
     setBusy(true);
     setError(null);
+
     const result = await subscribeToPush(vapidPublicKey);
-    setBusy(false);
-    if (result.ok) setHidden(true);
-    else {
+    if (!result.ok || !result.subscription) {
+      setBusy(false);
       setError(result.error ?? "ההרשמה נכשלה.");
       setState(await pushState());
+      return;
     }
+
+    // The browser accepting the subscription is half of it. Without this
+    // the permission is granted, the prompt disappears, and nothing is
+    // ever delivered — which is worse than never having asked.
+    const saved = await savePushSubscription({
+      ...result.subscription,
+      userAgent: navigator.userAgent,
+    });
+    setBusy(false);
+
+    if (saved.error) setError(saved.error);
+    else setHidden(true);
   }
 
   if (hidden || !state) return null;
