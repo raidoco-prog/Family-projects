@@ -68,6 +68,30 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+/**
+ * Tells any open page that a push arrived.
+ *
+ * Sending a push proves only that the push service accepted it. Everything
+ * after that — delivery to the device, waking this worker, and the system
+ * actually drawing the notification — is invisible from the server, and a
+ * failure anywhere in it looks identical: the app says the notification was
+ * sent and the phone shows nothing.
+ *
+ * This splits that in half. If the page hears this message, the push
+ * reached the device and this worker ran, so a notification that still did
+ * not appear is the operating system's own setting. If it hears nothing,
+ * the push never arrived and the setting is not the place to look.
+ */
+async function announce(payload) {
+  const clients = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+  for (const client of clients) {
+    client.postMessage({ type: "push-received", title: payload.title });
+  }
+}
+
 self.addEventListener("push", (event) => {
   let payload = { title: "הבית שלנו", body: "", url: "/home" };
   try {
@@ -77,16 +101,19 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      dir: "rtl",
-      lang: "he",
-      data: { url: payload.url },
-      // Same tag replaces an unread notification rather than stacking.
-      tag: payload.url,
-    }),
+    Promise.all([
+      self.registration.showNotification(payload.title, {
+        body: payload.body,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        dir: "rtl",
+        lang: "he",
+        data: { url: payload.url },
+        // Same tag replaces an unread notification rather than stacking.
+        tag: payload.url,
+      }),
+      announce(payload),
+    ]),
   );
 });
 

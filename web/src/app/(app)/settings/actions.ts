@@ -74,6 +74,43 @@ export async function savePushSubscription(sub: {
   return { devices: typeof data === "number" ? data : undefined };
 }
 
+/**
+ * Drops every registration of this member's except the one asking.
+ *
+ * Registrations accumulate and nothing removes them. Re-installing to the
+ * home screen makes a new subscription and the browser then has no memory
+ * of the old one, so it cannot ask for its removal; the same happens on a
+ * key change and on a reinstall of the browser. The rows are harmless
+ * except in the one place it matters — "sent to 3 devices" from somebody
+ * holding one phone, where the count reads as reassurance while being the
+ * fault itself.
+ *
+ * Safe because every device now registers itself when the app opens. The
+ * worst case for a device wrongly cleared is that it re-appears the next
+ * time its owner looks at the app.
+ */
+export async function forgetOtherDevices(keepEndpoint: string): Promise<SaveDeviceResult> {
+  const session = await getSession();
+  if (!session) return { error: EXPIRED };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .delete()
+    .eq("member_id", session.member.id)
+    .neq("endpoint", keepEndpoint);
+
+  if (error) return { error: `הניקוי נכשל: ${error.message}` };
+
+  const { count } = await supabase
+    .from("push_subscriptions")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", session.member.id);
+
+  revalidatePath("/settings");
+  return { devices: count ?? 0 };
+}
+
 export async function removePushSubscription(endpoint: string): Promise<ActionResult> {
   const session = await getSession();
   if (!session) return { error: EXPIRED };
@@ -172,7 +209,7 @@ export interface TestPushResult {
  * This exercises the whole chain except the schedule, and reports what it
  * found. It can only ever reach the member making the request.
  */
-export async function sendTestPush(): Promise<TestPushResult> {
+export async function sendTestPush(endpoint?: string): Promise<TestPushResult> {
   const session = await getSession();
   if (!session) return { error: EXPIRED };
 
@@ -208,14 +245,26 @@ export async function sendTestPush(): Promise<TestPushResult> {
   }
 
   const db = createAdminClient();
-  const { data: subs } = await db
+  let query = db
     .from("push_subscriptions")
     .select("id,endpoint,p256dh,auth")
     .eq("member_id", session.member.id);
 
+  // Restricted to the device asking, when it knows which one it is.
+  // Sending to every registration the member has ever made turns the
+  // result into a number that cannot be acted on: "sent to 3 devices" from
+  // a person holding one phone says nothing about whether that phone was
+  // among them, and the count reads as reassurance while being the
+  // symptom.
+  if (endpoint) query = query.eq("endpoint", endpoint);
+
+  const { data: subs } = await query;
+
   if (!subs?.length) {
     return {
-      error: "אין מכשיר רשום. לחצו קודם «הפעלת התראות במכשיר הזה».",
+      error: endpoint
+        ? "המכשיר הזה אינו רשום בשרת. רעננו את הדף — הוא נרשם מעצמו — ונסו שוב."
+        : "אין מכשיר רשום. לחצו קודם «הפעלת התראות במכשיר הזה».",
     };
   }
 
