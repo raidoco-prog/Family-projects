@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/session";
 import { syncCalendars } from "@/lib/gcal";
+import { configureWebPush } from "@/lib/notifications";
+import webpush from "web-push";
 
 export interface ActionResult {
   error?: string;
@@ -116,4 +118,86 @@ export async function syncCalendarNow(): Promise<SyncResult> {
   } catch (err) {
     return { error: err instanceof Error ? err.message : "הסנכרון נכשל." };
   }
+}
+
+
+export interface TestPushResult {
+  error?: string;
+  sent?: number;
+}
+
+/**
+ * Sends one notification to the caller's own devices, right now.
+ *
+ * Everything between pressing "enable" and a reminder actually arriving is
+ * invisible: the subscription, the keys, the signing, Apple's push service,
+ * the phone's own notification settings. Any one of them can be wrong and
+ * the only symptom is a reminder that never comes — days later, with no way
+ * to tell which link broke.
+ *
+ * This exercises the whole chain except the schedule, and reports what it
+ * found. It can only ever reach the member making the request.
+ */
+export async function sendTestPush(): Promise<TestPushResult> {
+  const session = await getSession();
+  if (!session) return { error: EXPIRED };
+
+  if (!configureWebPush()) {
+    return {
+      error:
+        "מפתחות ההתראות לא מוגדרים בשרת. ראו את הכרטיס «יצירת מפתחות ההתראות».",
+    };
+  }
+
+  const db = createAdminClient();
+  const { data: subs } = await db
+    .from("push_subscriptions")
+    .select("id,endpoint,p256dh,auth")
+    .eq("member_id", session.member.id);
+
+  if (!subs?.length) {
+    return {
+      error: "אין מכשיר רשום. לחצו קודם «הפעלת התראות במכשיר הזה».",
+    };
+  }
+
+  let sent = 0;
+  const dead: string[] = [];
+  let lastError = "";
+
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth },
+        },
+        JSON.stringify({
+          title: "הבית שלנו",
+          body: "בדיקה — ההתראות עובדות.",
+          url: "/home",
+        }),
+      );
+      sent += 1;
+    } catch (err) {
+      const status = (err as { statusCode?: number }).statusCode;
+      // The browser discarded this subscription; keeping it would mean
+      // failing forever against an endpoint that no longer exists.
+      if (status === 404 || status === 410) dead.push(sub.id);
+      lastError =
+        (err as { body?: string }).body ||
+        (err instanceof Error ? err.message : "שליחה נכשלה");
+    }
+  }
+
+  if (dead.length) await db.from("push_subscriptions").delete().in("id", dead);
+
+  if (sent === 0) {
+    return {
+      error: dead.length
+        ? "הרישום של המכשיר פג. לחצו «הפעלת התראות במכשיר הזה» שוב."
+        : `השליחה נכשלה: ${lastError}`,
+    };
+  }
+  return { sent };
 }
