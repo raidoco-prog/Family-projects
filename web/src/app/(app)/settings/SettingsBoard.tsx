@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  currentSubscription,
+  currentSubscriptionForKey,
   isIos,
   pushState,
   subscribeToPush,
@@ -91,7 +91,12 @@ export default function SettingsBoard({
       // That is what let this screen say "notifications on" above
       // "0 devices registered" — and it is not something to report, since
       // everything needed to repair it is already here.
-      const sub = await currentSubscription();
+      //
+      // Asked for the current key specifically. A subscription made under
+      // an earlier key registers perfectly well and can never be delivered
+      // to, which is a worse outcome than the one this repairs: it looks
+      // finished from every angle.
+      const sub = await currentSubscriptionForKey(vapidPublicKey);
       if (cancelled) return;
       if (!sub) {
         setState("available");
@@ -114,7 +119,7 @@ export default function SettingsBoard({
     return () => {
       cancelled = true;
     };
-  }, [known, endpoints.length, router]);
+  }, [known, endpoints.length, router, vapidPublicKey]);
 
   function patch(update: PreferenceUpdate) {
     if (!prefs) return;

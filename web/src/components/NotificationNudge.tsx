@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  currentSubscription,
+  currentSubscriptionForKey,
   isIos,
   pushSnoozeUntil,
   pushState,
@@ -65,8 +65,12 @@ export default function NotificationNudge({
       // have no reason to suspect it — they pressed the button and it went
       // away. Re-registering is idempotent and costs one call, so the
       // repair happens where the damage was done.
+      //
+      // For the current key: an endpoint created under an earlier one
+      // registers fine and is undeliverable, which hides the problem
+      // instead of fixing it.
       if (s !== "granted") return;
-      const sub = await currentSubscription();
+      const sub = await currentSubscriptionForKey(vapidPublicKey);
       if (sub) {
         void savePushSubscription({ ...sub, userAgent: navigator.userAgent });
       }

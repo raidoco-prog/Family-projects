@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/session";
 import { syncCalendars } from "@/lib/gcal";
-import { configureWebPush } from "@/lib/notifications";
+import { configureWebPush, isDeadSubscription, vapidKeyVerdict } from "@/lib/notifications";
 import webpush from "web-push";
 
 export interface ActionResult {
@@ -176,6 +176,30 @@ export async function sendTestPush(): Promise<TestPushResult> {
   const session = await getSession();
   if (!session) return { error: EXPIRED };
 
+  // Checked before sending, not after failing. The push service's answer
+  // to a mismatched pair and to a stale subscription is the same word, so
+  // asking afterwards cannot separate them — and this half is knowable
+  // without sending anything at all.
+  const verdict = vapidKeyVerdict();
+  if (verdict === "missing") {
+    return {
+      error:
+        "מפתחות ההתראות לא מוגדרים בשרת. ראו את הכרטיס «יצירת מפתחות ההתראות».",
+    };
+  }
+  if (verdict === "malformed") {
+    return {
+      error:
+        "אחד ממפתחות ההתראות אינו תקין — כנראה הועתק חלקית. צרו זוג חדש, החליפו את שניהם ב-Vercel ופרסו מחדש.",
+    };
+  }
+  if (verdict === "not-a-pair") {
+    return {
+      error:
+        "המפתח הציבורי והפרטי אינם זוג. זה קורה כשיוצרים מפתחות פעמיים ומעתיקים אחד מכל יצירה. צרו זוג חדש, החליפו את שניהם ב-Vercel ופרסו מחדש.",
+    };
+  }
+
   if (!configureWebPush()) {
     return {
       error:
@@ -214,10 +238,9 @@ export async function sendTestPush(): Promise<TestPushResult> {
       );
       sent += 1;
     } catch (err) {
-      const status = (err as { statusCode?: number }).statusCode;
-      // The browser discarded this subscription; keeping it would mean
-      // failing forever against an endpoint that no longer exists.
-      if (status === 404 || status === 410) dead.push(sub.id);
+      // Keeping an endpoint that can never be delivered to means failing
+      // against it at every cron run, for ever.
+      if (isDeadSubscription(err, true)) dead.push(sub.id);
       lastError =
         (err as { body?: string }).body ||
         (err instanceof Error ? err.message : "שליחה נכשלה");
@@ -227,9 +250,15 @@ export async function sendTestPush(): Promise<TestPushResult> {
   if (dead.length) await db.from("push_subscriptions").delete().in("id", dead);
 
   if (sent === 0) {
+    // The keys have already been verified as a genuine pair above, so a
+    // refused token here says something narrower and more useful: this
+    // device subscribed under an earlier key. Its registration has just
+    // been removed, and the next visit re-registers it automatically —
+    // which is worth saying, because "press it again" is the advice a
+    // person would otherwise follow, and it is not needed.
     return {
       error: dead.length
-        ? "הרישום של המכשיר פג. לחצו «הפעלת התראות במכשיר הזה» שוב."
+        ? "הרישום של המכשיר הזה נוצר עם מפתח ישן יותר, והוסר עכשיו. רעננו את הדף — המכשיר יירשם מחדש מעצמו — ונסו שוב."
         : `השליחה נכשלה: ${lastError}`,
     };
   }

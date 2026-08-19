@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import { createECDH } from "node:crypto";
 import { RRule } from "rrule";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { zonedDate, zonedTimeToInstant } from "@/lib/calendar";
@@ -443,12 +444,48 @@ export function inQuietHours(
   return f <= t ? minutes >= f && minutes < t : minutes >= f || minutes < t;
 }
 
+/**
+ * Whether a rejected push means *this subscription* is finished.
+ *
+ * 404 and 410 are unambiguous: the push service has thrown the
+ * subscription away. A refused token is not, and the difference matters
+ * because acting on it wrongly deletes every device in the family.
+ *
+ * A subscription is bound to the application key it was created with. Push
+ * to it with a different pair and Apple answers `badJwtToken` — the same
+ * words it uses when the server's own keys are nonsense. Read alone, the
+ * rejection cannot tell those apart. But the server's key pair can be
+ * checked directly, and once it is known to be sound, a token refused for
+ * one endpoint can only mean that endpoint predates the current key. That
+ * is permanent, and it will not resolve itself: nothing here would ever
+ * clear it, so the cron would retry it at every run for ever.
+ *
+ * When the pair does not verify, nothing is deleted. The fault is the
+ * configuration's, the same for every device, and throwing away the whole
+ * family's registrations over it would turn a five-minute fix into an
+ * evening of asking four people to press a button again.
+ */
+export function isDeadSubscription(err: unknown, serverKeysAreSound: boolean): boolean {
+  const status = (err as { statusCode?: number }).statusCode;
+  if (status === 404 || status === 410) return true;
+  if (!serverKeysAreSound) return false;
+  if (status !== 400 && status !== 403) return false;
+  // Each push service words this differently. Apple says `BadJwtToken`;
+  // Chrome says the key in the Authorization header does not match the one
+  // the subscription was made with. Both mean the same thing, and matching
+  // only one of them leaves half the family's devices retrying for ever.
+  const body = String((err as { body?: string }).body ?? "");
+  return /badjwttoken|vapid|application server key|unauthorized|authorization header/i.test(body);
+}
+
 export async function sendPending(
   db: Db,
   now: Date,
   timeZone: string,
   report: CronReport,
 ): Promise<void> {
+  const keysAreSound = vapidKeyVerdict() === "ok";
+
   // Stop retrying what is too old to be useful. The rows are *not* marked
   // sent — R9 wants a missed reminder to stay findable, and writing sent_at
   // would claim it was delivered. They keep sent_at null, which is the honest
@@ -526,9 +563,7 @@ export async function sendPending(
         );
         delivered = true;
       } catch (err) {
-        const status = (err as { statusCode?: number }).statusCode;
-        // 404/410 mean the browser threw the subscription away.
-        if (status === 404 || status === 410) deadSubs.push(sub.id);
+        if (isDeadSubscription(err, keysAreSound)) deadSubs.push(sub.id);
         report.failed++;
       }
     }
@@ -549,13 +584,51 @@ export async function sendPending(
 }
 
 export function configureWebPush(): boolean {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  // Trimmed. A value pasted with a trailing newline is not empty, so it
+  // passes every "is it set" check and then signs badly, and the only
+  // symptom is the push service rejecting the token.
+  const publicKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim();
+  const privateKey = (process.env.VAPID_PRIVATE_KEY ?? "").trim();
   if (!publicKey || !privateKey) return false;
   webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || "mailto:family@example.com",
+    (process.env.VAPID_SUBJECT || "mailto:family@example.com").trim(),
     publicKey,
     privateKey,
   );
   return true;
+}
+
+export type VapidKeyVerdict = "ok" | "missing" | "malformed" | "not-a-pair";
+
+/**
+ * Whether the two configured keys are actually two halves of one key.
+ *
+ * When a push is refused, the message names the token — Apple says
+ * `badJwtToken` — and every explanation for that sounds equally plausible
+ * from the outside: wrong key, stale subscription, bad clock, wrong
+ * subject. This settles one of them without asking anybody anything.
+ *
+ * A VAPID pair is ECDSA P-256. The private half is the scalar, the public
+ * half is the uncompressed point, and the point can be recomputed from the
+ * scalar — so two values that claim to be a pair can simply be checked.
+ * Mixing the public key of one generation with the private key of another
+ * is easy to do and impossible to see, since both look like the right kind
+ * of gibberish.
+ */
+export function vapidKeyVerdict(): VapidKeyVerdict {
+  const publicKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim();
+  const privateKey = (process.env.VAPID_PRIVATE_KEY ?? "").trim();
+  if (!publicKey || !privateKey) return "missing";
+
+  try {
+    const priv = Buffer.from(privateKey, "base64url");
+    const pub = Buffer.from(publicKey, "base64url");
+    if (priv.length !== 32 || pub.length !== 65 || pub[0] !== 0x04) return "malformed";
+
+    const ecdh = createECDH("prime256v1");
+    ecdh.setPrivateKey(priv);
+    return ecdh.getPublicKey().equals(pub) ? "ok" : "not-a-pair";
+  } catch {
+    return "malformed";
+  }
 }
