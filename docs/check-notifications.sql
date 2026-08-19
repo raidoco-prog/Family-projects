@@ -106,12 +106,20 @@ begin
   return next;
 
   ---------------------------------------------------------------
+  -- אפס כאן אינו אומר שאיש לא לחץ. הכפתור במסך הבית נהג לעצור
+  -- בדפדפן בלי לשמור, ולכן «התראות פעילות» בטלפון ואפס כאן היו
+  -- מצב אפשרי לגמרי. אם קיימת claim_push_device התיקון כבר הותקן.
   שלב := '5. מכשירים רשומים';
   select count(*) into v_count from push_subscriptions;
-  ממצא := v_count::text;
-  מסקנה := case when v_count = 0
-                then 'אף אחד לא לחץ «הפעלת התראות» — אין למי לשלוח'
-                else 'יש למי לשלוח' end;
+  ממצא := v_count::text ||
+          case when to_regprocedure('claim_push_device(text,text,text,text)') is null
+               then '  ·  התיקון לא הותקן' else '' end;
+  מסקנה := case
+             when to_regprocedure('claim_push_device(text,text,text,text)') is null
+               then 'הריצו את fix-push-registration.sql, ואז פרסו מחדש'
+             when v_count = 0
+               then 'אין למי לשלוח. פתחו את האפליקציה בטלפון — מכשיר שכבר אישר יירשם מעצמו'
+             else 'יש למי לשלוח' end;
   return next;
 
   ---------------------------------------------------------------

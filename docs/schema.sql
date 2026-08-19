@@ -724,6 +724,73 @@ end
 $$;
 
 -- ------------------------------------------------------------
+--  רישום מכשיר לדחיפה
+--
+--  דרך פונקציה, ולא כתיבה ישירה לטבלה, כי כתיבה ישירה לא יכלה
+--  לעבוד מהדפדפן — ומשני טעמים נפרדים, ששניהם נראו מהטלפון בדיוק
+--  אותו דבר: «התראות פעילות» מעל «0 מכשירים רשומים».
+--
+--  ON CONFLICT DO UPDATE דורש הרשאת UPDATE בזמן ניתוח השאילתה,
+--  גם כשאין שורה מתנגשת כלל. לתפקיד של הדפדפן יש כאן select,
+--  insert ו-delete בלבד, ולכן כל רישום נדחה כבר בניסיון הראשון.
+--
+--  וכשכן קיימת שורה לאותו endpoint תחת בן משפחה אחר — טלפון אחד
+--  ושני חשבונות, מה שקורה בזמן שמסדרים הזמנות — RLS דוחה את
+--  העדכון, ובצדק.
+--
+--  endpoint מזהה דפדפן אחד במכשיר אחד, ואפשר להשיג אותו רק מאותו
+--  דפדפן. מי שמחובר שם עכשיו הוא זה שהתזכורות שייכות לו, ולכן
+--  הפונקציה לוקחת עליו בעלות במקום להתייחס לשורה ישנה כטענה
+--  מתחרה. מחזירה את מספר המכשירים, כדי שהמסך לא יוכל לסתור את
+--  המסד.
+-- ------------------------------------------------------------
+create or replace function claim_push_device(
+  p_endpoint   text,
+  p_p256dh     text,
+  p_auth       text,
+  p_user_agent text default null
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_member uuid;
+  v_count  integer;
+begin
+  select id into v_member from members where user_id = auth.uid();
+  if v_member is null then
+    raise exception 'no member is linked to this account'
+      using errcode = 'P0001';
+  end if;
+
+  if coalesce(p_endpoint, '') = '' or coalesce(p_p256dh, '') = ''
+     or coalesce(p_auth, '') = '' then
+    raise exception 'incomplete subscription' using errcode = 'P0001';
+  end if;
+
+  delete from push_subscriptions where endpoint = p_endpoint;
+
+  insert into push_subscriptions (member_id, endpoint, p256dh, auth, user_agent)
+  values (v_member, p_endpoint, p_p256dh, p_auth, left(p_user_agent, 300));
+
+  select count(*) into v_count
+    from push_subscriptions where member_id = v_member;
+  return v_count;
+end;
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    revoke all on function claim_push_device(text, text, text, text) from public;
+    grant execute on function claim_push_device(text, text, text, text) to authenticated;
+  end if;
+end
+$$;
+
+-- ------------------------------------------------------------
 -- 6ב. הצטרפות למשק בית
 --
 -- שתי הפעולות כאן הן security definer בכוונה, כי שתיהן קורות

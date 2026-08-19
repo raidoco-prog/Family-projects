@@ -14,30 +14,64 @@ export interface ActionResult {
 
 const EXPIRED = "פג תוקף החיבור. התחברו מחדש.";
 
+export interface SaveDeviceResult {
+  error?: string;
+  devices?: number;
+}
+
+/**
+ * Registers this browser as somewhere reminders can be delivered.
+ *
+ * Through a database function rather than a table write, because the table
+ * write could not do the job from a browser role. It was an upsert on the
+ * endpoint, and two things stopped it, both silently:
+ *
+ *   Postgres checks UPDATE privilege on any ON CONFLICT DO UPDATE at plan
+ *   time, whether or not a row actually conflicts — and the browser role
+ *   was granted select, insert and delete only. Every registration was
+ *   refused, on the first attempt, with nothing conflicting.
+ *
+ *   And when a row for the endpoint did exist under another member — one
+ *   phone, two accounts, which happens while invitations are being sorted
+ *   out — row-level security rejected the update outright, as it should.
+ *
+ * A push endpoint names one browser on one device, and it is obtainable
+ * only from that browser. Whoever is signed in there now is who its
+ * reminders belong to, so the function takes the endpoint over rather than
+ * treating a leftover row as a competing claim.
+ */
 export async function savePushSubscription(sub: {
   endpoint: string;
   p256dh: string;
   auth: string;
   userAgent: string;
-}): Promise<ActionResult> {
+}): Promise<SaveDeviceResult> {
   const session = await getSession();
   if (!session) return { error: EXPIRED };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    {
-      member_id: session.member.id,
-      endpoint: sub.endpoint,
-      p256dh: sub.p256dh,
-      auth: sub.auth,
-      user_agent: sub.userAgent.slice(0, 300),
-    },
-    { onConflict: "endpoint" },
-  );
+  const { data, error } = await supabase.rpc("claim_push_device", {
+    p_endpoint: sub.endpoint,
+    p_p256dh: sub.p256dh,
+    p_auth: sub.auth,
+    p_user_agent: sub.userAgent.slice(0, 300),
+  });
 
-  if (error) return { error: "שמירת המנוי נכשלה. נסו שוב." };
+  if (error) {
+    // The raw text, always. Every version of this failure looked the same
+    // from the phone — notifications reported as on, nothing registered,
+    // no reminders — and a sentence saying "try again" is what kept the
+    // cause invisible for as long as it was.
+    const missing = error.code === "42883" || /claim_push_device/.test(error.message);
+    return {
+      error: missing
+        ? "פונקציית הרישום חסרה במסד. הריצו את docs/fix-push-registration.sql ב-Supabase."
+        : `שמירת המכשיר נכשלה: ${error.message}`,
+    };
+  }
+
   revalidatePath("/settings");
-  return {};
+  return { devices: typeof data === "number" ? data : undefined };
 }
 
 export async function removePushSubscription(endpoint: string): Promise<ActionResult> {
