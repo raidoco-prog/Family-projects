@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import SettingsBoard from "./SettingsBoard";
 import CalendarCard, { type CalendarStatus } from "./CalendarCard";
 import VapidSetup from "./VapidSetup";
+import TestPush from "./TestPush";
 
 export interface Preferences {
   member_id: string;
@@ -69,6 +70,10 @@ export default async function SettingsPage({
       {/* Only when the key is genuinely missing — which is exactly when
           somebody is stuck on it, and never once it is configured. */}
       {vapidPublicKey ? null : <VapidSetup seen={seen} />}
+
+      {/* Only worth offering once a push could actually be signed. Before
+          that the answer is always the same and says nothing useful. */}
+      {vapidPublicKey ? <TestPush /> : null}
 
       <CalendarCard
         connectError={calendarError}
