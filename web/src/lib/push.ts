@@ -48,6 +48,25 @@ export async function pushState(): Promise<PushState> {
   return "available";
 }
 
+/**
+ * Whether a prompt has anything to say about this device.
+ *
+ * "granted" means it is already on and "unsupported" means no amount of
+ * tapping would change that, so both are silence. Kept out of the
+ * component so the promise it makes — say nothing when there is nothing
+ * to do — is something a test can hold it to.
+ */
+export function shouldAskAboutPush(state: PushState): boolean {
+  return state !== "granted" && state !== "unsupported";
+}
+
+/** How long "later" lasts. Long enough not to nag, short enough to return. */
+export const PUSH_SNOOZE_DAYS = 7;
+
+export function pushSnoozeUntil(now: number): number {
+  return now + PUSH_SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const normalised = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");

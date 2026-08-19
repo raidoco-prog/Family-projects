@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import MemberAvatar from "@/components/MemberAvatar";
+import NotificationNudge from "@/components/NotificationNudge";
 import {
   addDays,
   expandEvents,
@@ -129,6 +130,13 @@ export default async function HomePage() {
           {members.length} בני בית מחוברים למערכת
         </p>
       </div>
+
+      {/* Directly under the greeting: the first thing seen, and the only
+          place a person reliably looks. It removes itself once there is
+          nothing to ask. */}
+      <NotificationNudge
+        vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <Link
