@@ -18,6 +18,18 @@ export const metadata: Metadata = {
     title: "הבית שלנו",
     statusBarStyle: "default",
   },
+  // `appleWebApp.capable` emits only the standardised
+  // `mobile-web-app-capable`. iOS does not read that one — it reads the
+  // apple-prefixed name, and Next has no way to ask for it — so the app
+  // opened from the home screen with Safari's chrome around it, and the
+  // two apple-prefixed tags Next *does* emit made it look configured.
+  //
+  // Not cosmetic. iOS delivers web push only to a home-screen app running
+  // as a web app, so without this the subscription is accepted, Apple
+  // accepts the push, and nothing is ever shown.
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 /**
