@@ -85,7 +85,9 @@ export default async function SettingsPage({
 
       {/* Only worth offering once a push could actually be signed. Before
           that the answer is always the same and says nothing useful. */}
-      {keyVerdict === "ok" ? <TestPush /> : null}
+      {keyVerdict === "ok" ? (
+        <TestPush deviceCount={(devices ?? []).length} />
+      ) : null}
 
       <CalendarCard
         connectError={calendarError}
