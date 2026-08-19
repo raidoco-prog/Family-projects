@@ -79,6 +79,61 @@ export async function currentSubscription(): Promise<DeviceSubscription | null> 
   return read(await reg?.pushManager.getSubscription());
 }
 
+function sameKey(a: ArrayBuffer | null | undefined, b: Uint8Array): boolean {
+  if (!a) return false;
+  const x = new Uint8Array(a);
+  if (x.length !== b.length) return false;
+  return x.every((v, i) => v === b[i]);
+}
+
+/**
+ * The subscription this device holds, but only if the app can still push to
+ * it — otherwise a current one, made on the spot.
+ *
+ * A subscription is bound to the application key it was created with, and
+ * the push service enforces that: sign with a different pair and Apple
+ * answers `badJwtToken`, having accepted the subscription happily for
+ * months. Nothing about the device looks wrong, so it reads as "the keys
+ * are broken" rather than "this one device is on an old key".
+ *
+ * This app generated its key pair after some devices had already
+ * subscribed, which is exactly how a device ends up stranded. Re-checking
+ * costs one comparison, permission has already been granted so no prompt
+ * appears, and the alternative is registering an endpoint that can never
+ * be delivered to.
+ */
+export async function currentSubscriptionForKey(
+  vapidPublicKey: string,
+): Promise<DeviceSubscription | null> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
+  if (!vapidPublicKey) return null;
+
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return null;
+
+  const wanted = urlBase64ToUint8Array(vapidPublicKey);
+  const existing = await reg.pushManager.getSubscription();
+
+  if (existing) {
+    if (sameKey(existing.options?.applicationServerKey, wanted)) return read(existing);
+    await existing.unsubscribe();
+  }
+
+  try {
+    return read(
+      await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: wanted as BufferSource,
+      }),
+    );
+  } catch {
+    // Re-subscribing can fail on its own — offline, or a push service
+    // having a bad day. The caller's state is unchanged and the next visit
+    // tries again; claiming the old endpoint here would be worse.
+    return null;
+  }
+}
+
 /**
  * Whether a prompt has anything to say about this device.
  *

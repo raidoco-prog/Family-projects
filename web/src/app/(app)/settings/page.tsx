@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
+import { vapidKeyVerdict } from "@/lib/notifications";
 import SettingsBoard from "./SettingsBoard";
 import CalendarCard, { type CalendarStatus } from "./CalendarCard";
 import VapidSetup from "./VapidSetup";
@@ -31,6 +32,11 @@ export default async function SettingsPage({
   // passes every "is it set" check and then fails as an invalid key much
   // later, with an error that points nowhere near the cause.
   const vapidPublicKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim();
+
+  // Whether the two keys are halves of one pair. Present and well-formed
+  // is not the same as matching, and the difference is invisible: both
+  // values look like the right kind of gibberish either way.
+  const keyVerdict = vapidKeyVerdict();
 
   // Which of the three the server can actually see, by name only — never
   // a value. Without this the screen says the same thing whether nothing
@@ -73,6 +79,23 @@ export default async function SettingsPage({
       {/* Only when the key is genuinely missing — which is exactly when
           somebody is stuck on it, and never once it is configured. */}
       {vapidPublicKey ? null : <VapidSetup seen={seen} />}
+
+      {/* A configuration fault, so it is said before anything is pressed
+          rather than as the result of a failed send. The two keys can look
+          entirely correct and still not be halves of the same pair — which
+          is what happens when they are generated twice and one of each is
+          copied — and no amount of pressing "enable" on a phone will move
+          it. */}
+      {vapidPublicKey && keyVerdict !== "ok" && keyVerdict !== "missing" ? (
+        <p
+          role="alert"
+          className="rounded-2xl border border-danger/25 bg-danger-pastel p-3.5 text-[0.82rem] leading-relaxed font-semibold text-danger-ink"
+        >
+          {keyVerdict === "not-a-pair"
+            ? "המפתח הציבורי והפרטי בשרת אינם זוג, ולכן שום התראה לא תישלח. זה קורה כשיוצרים מפתחות פעמיים ומעתיקים אחד מכל יצירה. צרו זוג חדש, החליפו את שניהם ב-Vercel, ופרסו מחדש."
+            : "אחד ממפתחות ההתראות בשרת אינו תקין — כנראה הועתק חלקית. צרו זוג חדש, החליפו את שניהם ב-Vercel, ופרסו מחדש."}
+        </p>
+      ) : null}
 
       {/* Only worth offering once a push could actually be signed. Before
           that the answer is always the same and says nothing useful. */}
