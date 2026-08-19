@@ -583,15 +583,29 @@ export async function sendPending(
   }
 }
 
+/**
+ * An environment value as it was meant, rather than as it was pasted.
+ *
+ * These three are copied by hand into a hosting dashboard, from a phone,
+ * and the two ways that goes wrong are both invisible afterwards: a
+ * trailing newline picked up by the copy, and the surrounding quotes that
+ * come along when the value was read out of a `.env` line. Neither makes
+ * the variable empty, so every "is it set" check passes and the failure
+ * surfaces much later as a rejected signature.
+ */
+export function readKeyEnv(name: string): string {
+  return (process.env[name] ?? "")
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .trim();
+}
+
 export function configureWebPush(): boolean {
-  // Trimmed. A value pasted with a trailing newline is not empty, so it
-  // passes every "is it set" check and then signs badly, and the only
-  // symptom is the push service rejecting the token.
-  const publicKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim();
-  const privateKey = (process.env.VAPID_PRIVATE_KEY ?? "").trim();
+  const publicKey = readKeyEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY");
+  const privateKey = readKeyEnv("VAPID_PRIVATE_KEY");
   if (!publicKey || !privateKey) return false;
   webpush.setVapidDetails(
-    (process.env.VAPID_SUBJECT || "mailto:family@example.com").trim(),
+    readKeyEnv("VAPID_SUBJECT") || "mailto:family@example.com",
     publicKey,
     privateKey,
   );
@@ -616,13 +630,21 @@ export type VapidKeyVerdict = "ok" | "missing" | "malformed" | "not-a-pair";
  * of gibberish.
  */
 export function vapidKeyVerdict(): VapidKeyVerdict {
-  const publicKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim();
-  const privateKey = (process.env.VAPID_PRIVATE_KEY ?? "").trim();
+  const publicKey = readKeyEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY");
+  const privateKey = readKeyEnv("VAPID_PRIVATE_KEY");
   if (!publicKey || !privateKey) return "missing";
 
   try {
-    const priv = Buffer.from(privateKey, "base64url");
+    let priv = Buffer.from(privateKey, "base64url");
     const pub = Buffer.from(publicKey, "base64url");
+
+    // The scalar is a number, and a number with a leading zero byte encodes
+    // one byte short — about one key in 256. Left-padding is what it means;
+    // calling it malformed would send somebody to regenerate a pair that was
+    // never wrong, and the advice would appear to work, because the next one
+    // almost certainly encodes to 32.
+    if (priv.length === 31) priv = Buffer.concat([Buffer.alloc(1), priv]);
+
     if (priv.length !== 32 || pub.length !== 65 || pub[0] !== 0x04) return "malformed";
 
     const ecdh = createECDH("prime256v1");

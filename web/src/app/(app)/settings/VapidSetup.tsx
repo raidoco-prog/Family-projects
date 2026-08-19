@@ -71,6 +71,8 @@ function Field({ name, value }: { name: string; value: string }) {
   );
 }
 
+export type KeyVerdict = "ok" | "missing" | "malformed" | "not-a-pair";
+
 export interface EnvSeen {
   publicKey: boolean;
   privateKey: boolean;
@@ -87,7 +89,7 @@ export interface EnvSeen {
  * surprise, and why saying which names arrived is worth more than
  * repeating that one is absent.
  */
-function Diagnosis({ seen }: { seen: EnvSeen }) {
+function Diagnosis({ seen, verdict }: { seen: EnvSeen; verdict: KeyVerdict }) {
   const rows: [string, boolean][] = [
     ["NEXT_PUBLIC_VAPID_PUBLIC_KEY", seen.publicKey],
     ["VAPID_PRIVATE_KEY", seen.privateKey],
@@ -95,6 +97,16 @@ function Diagnosis({ seen }: { seen: EnvSeen }) {
   ];
   const none = rows.every(([, ok]) => !ok);
   const some = rows.some(([, ok]) => ok);
+
+  // Present is not the same as usable, and this is the case where saying
+  // "✗ missing" would be actively misleading: both keys arrived, both look
+  // right, and they still cannot sign anything.
+  const paired =
+    verdict === "not-a-pair"
+      ? "שניהם הגיעו — אבל הם אינם זוג. זה קורה כשיוצרים מפתחות יותר מפעם אחת ומעתיקים את הציבורי מיצירה אחת ואת הפרטי מאחרת. צרו זוג חדש כאן והחליפו את שניהם."
+      : verdict === "malformed"
+        ? "אחד המפתחות אינו קריא — כנראה הועתק חלקית, או שנשמר עם גרשיים. צרו זוג חדש כאן והחליפו את שניהם."
+        : null;
 
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-sunk p-3">
@@ -117,18 +129,28 @@ function Diagnosis({ seen }: { seen: EnvSeen }) {
         ))}
       </ul>
 
-      <p className="text-[0.72rem] leading-relaxed text-ink-soft">
-        {none
-          ? "אף אחד מהם לא הגיע. אם כבר הוספתם אותם ב-Vercel — חסר Redeploy: משתנה נקבע בזמן הבנייה, ופריסה שכבר רצה לא מכירה אותו."
-          : some && !seen.publicKey
-            ? "השאר הגיעו, וזה דווקא אומר שהפריסה עדכנית. בדקו את השם של החסר — הוא חייב להיות בדיוק NEXT_PUBLIC_VAPID_PUBLIC_KEY, כולל הקידומת."
-            : "חלק הגיעו. השלימו את החסרים ופרסו מחדש."}
+      <p
+        className={`text-[0.72rem] leading-relaxed ${paired ? "font-semibold text-danger-ink" : "text-ink-soft"}`}
+      >
+        {paired
+          ? paired
+          : none
+            ? "אף אחד מהם לא הגיע. אם כבר הוספתם אותם ב-Vercel — חסר Redeploy: משתנה נקבע בזמן הבנייה, ופריסה שכבר רצה לא מכירה אותו."
+            : some && !seen.publicKey
+              ? "השאר הגיעו, וזה דווקא אומר שהפריסה עדכנית. בדקו את השם של החסר — הוא חייב להיות בדיוק NEXT_PUBLIC_VAPID_PUBLIC_KEY, כולל הקידומת."
+              : "חלק הגיעו. השלימו את החסרים ופרסו מחדש."}
       </p>
     </div>
   );
 }
 
-export default function VapidSetup({ seen }: { seen: EnvSeen }) {
+export default function VapidSetup({
+  seen,
+  verdict,
+}: {
+  seen: EnvSeen;
+  verdict: KeyVerdict;
+}) {
   const [pair, setPair] = useState<Pair | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -175,39 +197,59 @@ export default function VapidSetup({ seen }: { seen: EnvSeen }) {
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-rule bg-surface p-4">
       <header className="flex flex-col gap-1">
-        <h2 className="text-sm font-bold">יצירת מפתחות ההתראות</h2>
+        <h2 className="text-sm font-bold">
+          {verdict === "missing" ? "יצירת מפתחות ההתראות" : "המפתחות צריכים החלפה"}
+        </h2>
         <p className="text-xs leading-relaxed text-ink-soft">
-          התראות דורשות זוג מפתחות. אפשר ליצור אותו כאן, בטלפון — הוא נוצר
-          במכשיר שלך ולא נשלח לשום מקום.
+          {verdict === "missing"
+            ? "התראות דורשות זוג מפתחות. אפשר ליצור אותו כאן, בטלפון — הוא נוצר במכשיר שלך ולא נשלח לשום מקום."
+            : "המפתחות שמוגדרים כרגע אינם יכולים לחתום על התראה. צרו זוג חדש כאן — הוא נוצר במכשיר שלך ולא נשלח לשום מקום."}
         </p>
       </header>
 
-      <Diagnosis seen={seen} />
+      <Diagnosis seen={seen} verdict={verdict} />
 
       {pair ? (
         <>
           <div className="flex flex-col gap-3">
             <Field name="NEXT_PUBLIC_VAPID_PUBLIC_KEY" value={pair.publicKey} />
             <Field name="VAPID_PRIVATE_KEY" value={pair.privateKey} />
-            <Field name="CRON_SECRET" value={pair.cronSecret} />
+            {/* Only when there is not one already. A CRON_SECRET that works
+                is shared with a schedule inside the database, and replacing
+                it here means the cron starts being turned away at the door
+                — a second fault, introduced while fixing the first, and
+                nothing on this screen would connect the two. */}
+            {seen.cronSecret ? null : (
+              <Field name="CRON_SECRET" value={pair.cronSecret} />
+            )}
           </div>
 
           <ol className="flex list-inside list-decimal flex-col gap-1.5 text-xs leading-relaxed text-ink-soft">
-            <li>הוסיפו את שלושתם למשתני הסביבה ב-Vercel.</li>
+            <li>
+              {seen.cronSecret
+                ? "החליפו את שני הערכים האלה במשתני הסביבה ב-Vercel."
+                : "הוסיפו את שלושתם למשתני הסביבה ב-Vercel."}
+            </li>
             <li>
               <b>Redeploy</b> — בלעדיו הם לא קיימים מבחינת האפליקציה.
             </li>
+            {seen.cronSecret ? null : (
+              <li>
+                הריצו את <code dir="ltr">cron.sql</code> ב-Supabase עם אותו{" "}
+                <code dir="ltr">CRON_SECRET</code>.
+              </li>
+            )}
             <li>
-              הריצו את <code dir="ltr">cron.sql</code> ב-Supabase עם אותו{" "}
-              <code dir="ltr">CRON_SECRET</code>.
+              {seen.cronSecret
+                ? "פתחו את האפליקציה בטלפון — המכשיר יירשם מחדש מעצמו."
+                : "חזרו לכאן ולחצו «הפעלת התראות במכשיר הזה»."}
             </li>
-            <li>חזרו לכאן ולחצו «הפעלת התראות במכשיר הזה».</li>
           </ol>
 
           <p className="rounded-xl bg-danger-pastel p-2.5 text-[0.7rem] leading-relaxed text-danger-ink">
-            שני האחרונים הם סודות. העתיקו אותם ישירות לשדה ב-Vercel — לא
-            דרך צ׳אט, מסמך או מייל. אם הדף נסגר לפני שהעתקתם, פשוט צרו זוג
-            חדש; אף אחד לא משתמש בהם עדיין.
+            {seen.cronSecret ? "המפתח הפרטי הוא סוד" : "שני האחרונים הם סודות"}.
+            העתיקו ישירות לשדה ב-Vercel — לא דרך צ׳אט, מסמך או מייל. אם הדף
+            נסגר לפני שהעתקתם, פשוט צרו זוג חדש; אף אחד לא משתמש בהם עדיין.
           </p>
         </>
       ) : (
