@@ -96,7 +96,11 @@ export default function SettingsBoard({
       // an earlier key registers perfectly well and can never be delivered
       // to, which is a worse outcome than the one this repairs: it looks
       // finished from every angle.
-      const sub = await currentSubscriptionForKey(vapidPublicKey);
+      const { subscription: sub, replaced } = await currentSubscriptionForKey(vapidPublicKey);
+      if (cancelled) return;
+      // Whatever it replaced is undeliverable now, and leaving the row
+      // behind would let a test push report success against it.
+      if (replaced) await removePushSubscription(replaced);
       if (cancelled) return;
       if (!sub) {
         setState("available");

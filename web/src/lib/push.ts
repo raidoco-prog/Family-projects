@@ -104,33 +104,41 @@ function sameKey(a: ArrayBuffer | null | undefined, b: Uint8Array): boolean {
  */
 export async function currentSubscriptionForKey(
   vapidPublicKey: string,
-): Promise<DeviceSubscription | null> {
-  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
-  if (!vapidPublicKey) return null;
+): Promise<{ subscription: DeviceSubscription | null; replaced: string | null }> {
+  const nothing = { subscription: null, replaced: null };
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return nothing;
+  if (!vapidPublicKey) return nothing;
 
   const reg = await navigator.serviceWorker.getRegistration();
-  if (!reg) return null;
+  if (!reg) return nothing;
 
   const wanted = urlBase64ToUint8Array(vapidPublicKey);
   const existing = await reg.pushManager.getSubscription();
+  let replaced: string | null = null;
 
   if (existing) {
-    if (sameKey(existing.options?.applicationServerKey, wanted)) return read(existing);
+    if (sameKey(existing.options?.applicationServerKey, wanted)) {
+      return { subscription: read(existing), replaced: null };
+    }
+    // Reported, not just discarded. The server still holds a row for this
+    // endpoint, and a row nothing can be delivered to is worse than an
+    // absent one: a test push counts it as sent, so the screen says the
+    // notification went out while the phone shows nothing.
+    replaced = existing.endpoint;
     await existing.unsubscribe();
   }
 
   try {
-    return read(
-      await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: wanted as BufferSource,
-      }),
-    );
+    const fresh = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: wanted as BufferSource,
+    });
+    return { subscription: read(fresh), replaced };
   } catch {
     // Re-subscribing can fail on its own — offline, or a push service
-    // having a bad day. The caller's state is unchanged and the next visit
-    // tries again; claiming the old endpoint here would be worse.
-    return null;
+    // having a bad day. The old endpoint is genuinely gone either way, so
+    // it is still worth clearing; the next visit subscribes again.
+    return { subscription: null, replaced };
   }
 }
 

@@ -10,7 +10,10 @@ import {
   subscribeToPush,
   type PushState,
 } from "@/lib/push";
-import { savePushSubscription } from "@/app/(app)/settings/actions";
+import {
+  removePushSubscription,
+  savePushSubscription,
+} from "@/app/(app)/settings/actions";
 
 /**
  * Brings the one unavoidable tap to the family instead of hiding it.
@@ -70,7 +73,8 @@ export default function NotificationNudge({
       // registers fine and is undeliverable, which hides the problem
       // instead of fixing it.
       if (s !== "granted") return;
-      const sub = await currentSubscriptionForKey(vapidPublicKey);
+      const { subscription: sub, replaced } = await currentSubscriptionForKey(vapidPublicKey);
+      if (replaced) void removePushSubscription(replaced);
       if (sub) {
         void savePushSubscription({ ...sub, userAgent: navigator.userAgent });
       }

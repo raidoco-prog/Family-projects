@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { isIos, isStandalone } from "@/lib/push";
 import { sendTestPush, type TestPushResult } from "./actions";
 
 /**
@@ -19,6 +20,16 @@ import { sendTestPush, type TestPushResult } from "./actions";
 export default function TestPush() {
   const [result, setResult] = useState<TestPushResult | null>(null);
   const [busy, start] = useTransition();
+  const [inSafari, setInSafari] = useState(false);
+
+  // The one way "sent" can be true and nothing arrive. iOS shows web push
+  // only to an app opened from its home-screen icon; in a Safari tab the
+  // subscription works, the push is accepted, and the notification is
+  // discarded silently. Reported next to the success rather than instead
+  // of it, because the send really did succeed — the fault is downstream.
+  useEffect(() => {
+    setInSafari(isIos() && !isStandalone());
+  }, []);
 
   return (
     <section className="flex flex-col gap-2.5 rounded-2xl border border-rule bg-surface p-4">
@@ -44,6 +55,14 @@ export default function TestPush() {
           {result.sent === 1
             ? "נשלחה למכשיר אחד. אם היא לא הופיעה תוך כמה שניות — ההרשאה כנראה כבויה בהגדרות המכשיר."
             : `נשלחה ל-${result.sent} מכשירים.`}
+        </p>
+      ) : null}
+
+      {inSafari ? (
+        <p className="rounded-xl bg-signal-soft p-2.5 text-[0.72rem] leading-relaxed font-semibold text-signal">
+          שימו לב: הדף הזה פתוח בספארי ולא מהסמל במסך הבית. באייפון התראה
+          נשלחת בהצלחה אך לא מוצגת במצב הזה. פתחו את האפליקציה מהסמל ונסו
+          שוב.
         </p>
       ) : null}
 
