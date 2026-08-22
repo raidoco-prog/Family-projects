@@ -53,6 +53,9 @@ export default function CalendarBoard({
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selected, setSelected] = useState(today);
   const [composing, setComposing] = useState(false);
+  // The event being edited. Separate from `composing` so the form is never
+  // asked to be both at once.
+  const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -242,6 +245,10 @@ export default function CalendarBoard({
               today={today}
               memberById={memberById}
               onToggleReminders={() => toggleReminders(o.event)}
+              onEdit={() => {
+                setComposing(false);
+                setEditing(o.event);
+              }}
               onDelete={() => remove(o.event)}
             />
           ))
@@ -334,16 +341,25 @@ export default function CalendarBoard({
         </section>
       ) : null}
 
-      {composing ? (
+      {composing || editing ? (
         <EventForm
+          // Remounts when the target changes, so a form opened on one event
+          // never keeps another's values in its uncontrolled fields.
+          key={editing?.id ?? "new"}
           members={members}
           currentMemberId={currentMemberId}
           defaultDate={isoDay(selected)}
+          timeZone={timeZone}
+          event={editing ?? undefined}
           onDone={() => {
             setComposing(false);
+            setEditing(null);
             router.refresh();
           }}
-          onCancel={() => setComposing(false)}
+          onCancel={() => {
+            setComposing(false);
+            setEditing(null);
+          }}
         />
       ) : (
         <button
@@ -365,12 +381,14 @@ function EventCard({
   today,
   memberById,
   onToggleReminders,
+  onEdit,
   onDelete,
 }: {
   occurrence: Occurrence;
   today: Date;
   memberById: Map<string, Member>;
   onToggleReminders: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const { event, start, repeated } = occurrence;
@@ -403,9 +421,17 @@ function EventCard({
         ) : null}
         <button
           type="button"
+          onClick={onEdit}
+          aria-label={`עריכת ${event.title}`}
+          className="ms-auto rounded-full px-2 py-0.5 text-[0.7rem] font-bold text-accent"
+        >
+          עריכה
+        </button>
+        <button
+          type="button"
           onClick={onDelete}
           aria-label={`מחיקת ${event.title}`}
-          className="ms-auto px-1 text-lg leading-none text-ink-faint hover:text-danger"
+          className="px-1 text-lg leading-none text-ink-faint hover:text-danger"
         >
           ×
         </button>

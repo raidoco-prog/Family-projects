@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import MemberAvatar from "@/components/MemberAvatar";
-import type { EventKind, Member } from "@/lib/types";
-import { createEvent, type NewEventInput } from "./actions";
+import type { CalendarEvent, EventKind, Member } from "@/lib/types";
+import { createEvent, updateEvent, type NewEventInput } from "./actions";
+import { appointmentOf, isoDay, timeStr, zonedDate } from "@/lib/calendar";
 
 const KINDS: { value: EventKind; label: string }[] = [
   { value: "general", label: "אירוע" },
@@ -32,25 +33,78 @@ const FOLLOW_UPS: { value: string; label: string }[] = [
 const field =
   "h-10 rounded-xl border border-rule bg-ground px-3 text-sm placeholder:text-ink-faint";
 
+
+/**
+ * Turns a stored event back into the values the form edits.
+ *
+ * The recurrence needs care. This form offers four simple repeats, but the
+ * calendar also holds rules it did not write — an imported Google event
+ * repeats on "SU,TU", and a `FREQ=WEEKLY` read out of that and written back
+ * would silently drop the days. Anything that does not map exactly is
+ * reported as "custom", which the form shows and refuses to rewrite, so
+ * editing a title cannot quietly change when the event happens.
+ */
+function repeatOf(rrule: string | null): NewEventInput["repeat"] {
+  if (!rrule) return "none";
+  const simple: Record<string, NewEventInput["repeat"]> = {
+    "FREQ=DAILY": "daily",
+    "FREQ=WEEKLY": "weekly",
+    "FREQ=MONTHLY": "monthly",
+    "FREQ=YEARLY": "yearly",
+  };
+  return simple[rrule.replace(/^RRULE:/, "").trim().toUpperCase()] ?? "keep";
+}
+
+function describe(event: CalendarEvent, timeZone: string) {
+  const local = zonedDate(event.starts_at, timeZone);
+  return {
+    kind: event.kind,
+    allDay: event.all_day,
+    remindersOn: event.reminders_on,
+    date: isoDay(local),
+    time: timeStr(local),
+    location: event.location ?? "",
+    repeat: repeatOf(event.rrule),
+    participants: (event.event_participants ?? []).map((p) => p.member_id),
+    appointment: appointmentOf(event),
+  };
+}
+
 export default function EventForm({
   members,
   currentMemberId,
   defaultDate,
+  timeZone,
+  event,
   onDone,
   onCancel,
 }: {
   members: Member[];
   currentMemberId: string;
   defaultDate: string;
+  timeZone: string;
+  /** When present the form edits this event instead of creating one. */
+  event?: CalendarEvent;
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const [kind, setKind] = useState<EventKind>("general");
-  const [allDay, setAllDay] = useState(false);
-  const [participants, setParticipants] = useState<string[]>([currentMemberId]);
-  const [patientId, setPatientId] = useState(members[0]?.id ?? "");
-  const [remindersOn, setRemindersOn] = useState(true);
-  const [referralNeeded, setReferralNeeded] = useState(false);
+  const editing = Boolean(event);
+  const existing = event
+    ? { ...describe(event, timeZone), title: event.title }
+    : null;
+
+  const [kind, setKind] = useState<EventKind>(existing?.kind ?? "general");
+  const [allDay, setAllDay] = useState(existing?.allDay ?? false);
+  const [participants, setParticipants] = useState<string[]>(
+    existing?.participants ?? [currentMemberId],
+  );
+  const [patientId, setPatientId] = useState(
+    existing?.appointment?.patient_id ?? members[0]?.id ?? "",
+  );
+  const [remindersOn, setRemindersOn] = useState(existing?.remindersOn ?? true);
+  const [referralNeeded, setReferralNeeded] = useState(
+    existing?.appointment?.referral_needed ?? false,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -94,7 +148,7 @@ export default function EventForm({
     };
 
     startTransition(async () => {
-      const res = await createEvent(input);
+      const res = event ? await updateEvent(event.id, input) : await createEvent(input);
       if (res.error) setError(res.error);
       else onDone();
     });
@@ -129,6 +183,7 @@ export default function EventForm({
 
       <input
         name="title"
+        defaultValue={existing?.title ?? ""}
         required
         autoFocus
         placeholder={isAppointment ? "למשל: רופא שיניים" : "כותרת האירוע"}
@@ -139,12 +194,12 @@ export default function EventForm({
       <div className="flex gap-2">
         <label className="flex flex-1 flex-col gap-1">
           <span className="text-[0.74rem] text-ink-soft">תאריך</span>
-          <input type="date" name="date" required defaultValue={defaultDate} className={field} />
+          <input type="date" name="date" required defaultValue={existing?.date ?? defaultDate} className={field} />
         </label>
         {!allDay ? (
           <label className="flex flex-1 flex-col gap-1">
             <span className="text-[0.74rem] text-ink-soft">שעה</span>
-            <input type="time" name="time" defaultValue="09:00" className={field} />
+            <input type="time" name="time" defaultValue={existing?.time ?? "09:00"} className={field} />
           </label>
         ) : null}
       </div>
@@ -159,11 +214,18 @@ export default function EventForm({
         כל היום
       </label>
 
-      <input name="location" placeholder="מיקום (לא חובה)" aria-label="מיקום" className={field} />
+      <input name="location" placeholder="מיקום (לא חובה)" aria-label="מיקום" defaultValue={existing?.location ?? ""} className={field} />
 
       <label className="flex flex-col gap-1">
         <span className="text-[0.74rem] text-ink-soft">חזרתיות</span>
-        <select name="repeat" defaultValue="none" className={field}>
+        <select name="repeat" defaultValue={existing?.repeat ?? "none"} className={field}>
+          {/* A rule this form cannot express — an imported Google event
+              repeating on particular weekdays, say. Offered so it can be
+              kept, because the alternative is that opening the form to fix
+              a title rewrites when the event happens. */}
+          {existing?.repeat === "keep" ? (
+            <option value="keep">חזרתיות מיובאת — להשאיר כפי שהיא</option>
+          ) : null}
           {REPEATS.map((r) => (
             <option key={r.value} value={r.value}>
               {r.label}
@@ -193,15 +255,15 @@ export default function EventForm({
           </label>
 
           <div className="flex gap-2">
-            <input name="doctor" placeholder="שם הרופא" aria-label="שם הרופא" className={`${field} flex-1`} />
-            <input name="specialty" placeholder="התמחות" aria-label="התמחות" className={`${field} flex-1`} />
+            <input name="doctor" defaultValue={existing?.appointment?.doctor_name ?? ""} placeholder="שם הרופא" aria-label="שם הרופא" className={`${field} flex-1`} />
+            <input name="specialty" defaultValue={existing?.appointment?.specialty ?? ""} placeholder="התמחות" aria-label="התמחות" className={`${field} flex-1`} />
           </div>
           <div className="flex gap-2">
-            <input name="clinic" placeholder="מרפאה" aria-label="מרפאה" className={`${field} flex-1`} />
-            <input name="hmo" placeholder="קופת חולים" aria-label="קופת חולים" className={`${field} flex-1`} />
+            <input name="clinic" defaultValue={existing?.appointment?.clinic ?? ""} placeholder="מרפאה" aria-label="מרפאה" className={`${field} flex-1`} />
+            <input name="hmo" defaultValue={existing?.appointment?.hmo ?? ""} placeholder="קופת חולים" aria-label="קופת חולים" className={`${field} flex-1`} />
           </div>
-          <input name="phone" type="tel" placeholder="טלפון המרפאה" aria-label="טלפון המרפאה" className={field} dir="ltr" />
-          <input name="prep" placeholder="להכין מראש (צום, טופס 17…)" aria-label="להכין מראש" className={field} />
+          <input name="phone" defaultValue={existing?.appointment?.phone ?? ""} type="tel" placeholder="טלפון המרפאה" aria-label="טלפון המרפאה" className={field} dir="ltr" />
+          <input name="prep" defaultValue={existing?.appointment?.prep_notes ?? ""} placeholder="להכין מראש (צום, טופס 17…)" aria-label="להכין מראש" className={field} />
 
           {/* A5 */}
           <label className="flex items-center gap-2 text-sm">
@@ -216,6 +278,7 @@ export default function EventForm({
           {referralNeeded ? (
             <input
               name="referral_number"
+              defaultValue={existing?.appointment?.referral_number ?? ""}
               placeholder="מספר הפניה"
               aria-label="מספר הפניה"
               className={field}
@@ -226,7 +289,7 @@ export default function EventForm({
           {/* A7 */}
           <label className="flex flex-col gap-1">
             <span className="text-[0.74rem] text-ink-soft">ביקורת הבאה</span>
-            <select name="follow_up" defaultValue="" aria-label="ביקורת הבאה" className={field}>
+            <select name="follow_up" defaultValue={existing?.appointment?.follow_up_after ?? ""} aria-label="ביקורת הבאה" className={field}>
               {FOLLOW_UPS.map((f) => (
                 <option key={f.value} value={f.value}>
                   {f.label}
@@ -295,7 +358,7 @@ export default function EventForm({
           disabled={pending}
           className="h-10 flex-1 rounded-xl bg-accent-pastel text-sm font-bold text-accent disabled:opacity-60"
         >
-          {pending ? "רגע…" : "שמירה"}
+          {pending ? "רגע…" : editing ? "שמירת השינויים" : "שמירה"}
         </button>
         <button
           type="button"

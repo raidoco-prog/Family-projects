@@ -20,7 +20,15 @@ export interface NewEventInput {
   time: string;
   allDay: boolean;
   location: string;
-  repeat: "none" | "daily" | "weekly" | "monthly" | "yearly";
+  /**
+   * "keep" leaves an existing recurrence untouched. The form offers four
+   * simple rules, and the calendar also holds rules it did not write —
+   * an imported Google event repeating on given weekdays. Reading one of
+   * those back as the nearest simple rule and saving it would drop the
+   * detail, so editing a title would silently change when the event
+   * happens. Only meaningful when updating.
+   */
+  repeat: "none" | "daily" | "weekly" | "monthly" | "yearly" | "keep";
   participants: string[];
   remindersOn: boolean;
   appointment?: {
@@ -39,7 +47,7 @@ export interface NewEventInput {
   };
 }
 
-const RRULES: Record<NewEventInput["repeat"], string | null> = {
+const RRULES: Record<Exclude<NewEventInput["repeat"], "keep">, string | null> = {
   none: null,
   daily: "FREQ=DAILY",
   weekly: "FREQ=WEEKLY",
@@ -79,7 +87,7 @@ export async function createEvent(input: NewEventInput): Promise<ActionResult> {
       location: input.location.trim() || null,
       starts_at: startsAt.toISOString(),
       all_day: input.allDay,
-      rrule: RRULES[input.repeat],
+      rrule: input.repeat === "keep" ? null : RRULES[input.repeat],
       reminders_on: input.remindersOn,
       created_by: session.member.id,
     })
@@ -120,6 +128,100 @@ export async function createEvent(input: NewEventInput): Promise<ActionResult> {
       await supabase.from("events").delete().eq("id", event.id);
       return { error: "שמירת פרטי התור נכשלה. נסו שוב." };
     }
+  }
+
+  return {};
+}
+
+/**
+ * Edits an event that already exists.
+ *
+ * There was no way to do this. An event could be created and deleted, so a
+ * wrong time meant retyping everything — including an appointment's whole
+ * second half, the doctor and the clinic and the referral number — and a
+ * recurring event lost its history in the process.
+ *
+ * Participants are replaced rather than merged. They decide who a reminder
+ * reaches, so leaving a removed person attached would keep notifying them
+ * about something that is no longer theirs, and there is no reading of
+ * "remove from the event" that means "keep reminding them".
+ *
+ * The appointment half follows the kind. An event edited from appointment
+ * to something else keeps no medical row behind it — that row is what makes
+ * it invisible to the children, so a leftover would be both wrong and
+ * quietly consequential.
+ */
+export async function updateEvent(
+  eventId: string,
+  input: NewEventInput,
+): Promise<ActionResult> {
+  const title = input.title.trim();
+  if (!title) return { error: "צריך למלא כותרת." };
+  if (!input.date) return { error: "צריך לבחור תאריך." };
+
+  const session = await getSession();
+  if (!session) return { error: EXPIRED };
+
+  const startsAt = zonedTimeToInstant(
+    `${input.date}T${input.allDay ? "00:00" : input.time || "09:00"}`,
+    session.household.timezone || "Asia/Jerusalem",
+  );
+  if (Number.isNaN(startsAt.getTime())) return { error: "תאריך או שעה לא תקינים." };
+
+  if (input.kind === "appointment" && !input.appointment?.patientId) {
+    return { error: "בתור רפואי צריך לבחור מטופל." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("events")
+    .update({
+      kind: input.kind,
+      title,
+      location: input.location.trim() || null,
+      starts_at: startsAt.toISOString(),
+      all_day: input.allDay,
+      ...(input.repeat === "keep" ? {} : { rrule: RRULES[input.repeat] }),
+      reminders_on: input.remindersOn,
+    })
+    .eq("id", eventId);
+
+  // RLS is what decides whether this event belongs to the caller's
+  // household; there is no separate ownership check to write here.
+  if (error) return { error: `שמירת השינויים נכשלה: ${error.message}` };
+
+  const people = new Set(input.participants);
+  if (input.appointment?.patientId) people.add(input.appointment.patientId);
+
+  await supabase.from("event_participants").delete().eq("event_id", eventId);
+  if (people.size) {
+    await supabase.from("event_participants").insert(
+      [...people].map((member_id) => ({ event_id: eventId, member_id })),
+    );
+  }
+
+  if (input.kind === "appointment" && input.appointment) {
+    const a = input.appointment;
+    const { error: apptError } = await supabase.from("appointments").upsert(
+      {
+        event_id: eventId,
+        patient_id: a.patientId,
+        doctor_name: a.doctorName.trim() || null,
+        specialty: a.specialty.trim() || null,
+        clinic: a.clinic.trim() || null,
+        hmo: a.hmo.trim() || null,
+        phone: a.phone.trim() || null,
+        prep_notes: a.prepNotes.trim() || null,
+        referral_needed: a.referralNeeded,
+        referral_number: a.referralNumber.trim() || null,
+        follow_up_after: a.followUpAfter || null,
+      },
+      { onConflict: "event_id" },
+    );
+    if (apptError) return { error: `שמירת פרטי התור נכשלה: ${apptError.message}` };
+  } else {
+    await supabase.from("appointments").delete().eq("event_id", eventId);
   }
 
   return {};
