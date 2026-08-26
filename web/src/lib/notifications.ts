@@ -288,10 +288,17 @@ export async function queueEventNotifications(db: Db, now: Date): Promise<number
     };
   });
 
-  await db.from("notifications").upsert(rows, {
+  const { error } = await db.from("notifications").upsert(rows, {
     onConflict: "member_id,dedupe_key",
     ignoreDuplicates: true,
   });
+
+  // Only once it really is in the outbox. Marking these consumed after a
+  // failed insert destroys the reminder: the row says it was handled, no
+  // notification exists, and nothing will ever look at it again. The
+  // symptom is a reminder that silently never arrives — and it would be
+  // gone from both tables, so there would be nothing left to find.
+  if (error) throw new Error(`queueing event notifications failed: ${error.message}`);
 
   // The event_reminders row has done its job once it is in the outbox.
   await db

@@ -668,9 +668,37 @@ create index notifications_pending
   on notifications (fire_at)
   where sent_at is null;
 
+-- ------------------------------------------------------------
+--  דופק הקרון
+--
+--  שורה אחת, שנכתבת מחדש בכל הרצה. הסיבה שהיא קיימת: אפשר לבדוק
+--  שהתראת בדיקה מגיעה, ועדיין לא לקבל אף תזכורת — כי בדיקה
+--  נשלחת ישירות מהשרת, בזמן שתזכורת עוברת דרך משימה מתוזמנת
+--  שאיש אינו רואה. כשהמשימה הזו אינה רצה כלל, שני המצבים נראים
+--  מהטלפון בדיוק אותו דבר: שקט.
+--
+--  זה מה שהופך «הקרון לא רץ» לדבר שכתוב על המסך במקום לדבר
+--  שמסיקים אחרי שבוע בלי תזכורות.
+-- ------------------------------------------------------------
+create table cron_runs (
+  -- מפתח קבוע: יש בדיוק שורה אחת, והיא נדרסת בכל הרצה.
+  id      boolean primary key default true check (id),
+  ran_at  timestamptz not null default now(),
+  queued  integer not null default 0,
+  sent    integer not null default 0,
+  failed  integer not null default 0,
+  note    text
+);
+
 alter table push_subscriptions       enable row level security;
 alter table notification_preferences enable row level security;
 alter table notifications            enable row level security;
+alter table cron_runs                enable row level security;
+
+-- כל מי שמחובר יכול לראות מתי הקרון רץ. אין כאן מידע פרטי, ומי
+-- שרואה את המסך הוא מי שצריך לדעת שהתזכורות שלו מושבתות.
+create policy cron_runs_read on cron_runs
+  for select using (auth.uid() is not null);
 
 -- מנוי לדחיפה שייך למכשיר של אדם אחד, ולא לכל משק הבית.
 create policy push_own on push_subscriptions
@@ -719,6 +747,7 @@ begin
     grant select, insert, delete on push_subscriptions to authenticated;
     grant select, update on notification_preferences to authenticated;
     grant select on notifications to authenticated;
+    grant select on cron_runs to authenticated;
   end if;
 end
 $$;
