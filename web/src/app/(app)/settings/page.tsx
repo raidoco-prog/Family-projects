@@ -5,6 +5,7 @@ import SettingsBoard from "./SettingsBoard";
 import CalendarCard, { type CalendarStatus } from "./CalendarCard";
 import VapidSetup from "./VapidSetup";
 import TestPush from "./TestPush";
+import CronHealth from "./CronHealth";
 
 export interface Preferences {
   member_id: string;
@@ -88,6 +89,12 @@ export default async function SettingsPage({
       {keyVerdict === "ok" ? (
         <TestPush deviceCount={(devices ?? []).length} />
       ) : null}
+
+      {/* Next to the test, deliberately. The test answers "can this device
+          receive a notification"; this answers "will one ever be sent".
+          Both being green is what "reminders work" actually means, and
+          reading only the first is how a week goes by. */}
+      {keyVerdict === "ok" ? <CronHealth /> : null}
 
       <CalendarCard
         connectError={calendarError}

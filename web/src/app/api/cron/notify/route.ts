@@ -91,6 +91,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // The heartbeat, last, so it records a run that got all the way here.
+  //
+  // Without it the only evidence this route ever ran lives in pg_net's
+  // response log, which nobody looks at and which a person cannot reach
+  // from a phone. A test push proves the server can reach the device; it
+  // proves nothing about the schedule, and those two failures are
+  // identical from the outside — no notification arrives. This is what
+  // lets the app say which one it is.
+  await db
+    .from("cron_runs")
+    .upsert(
+      {
+        id: true,
+        ran_at: now.toISOString(),
+        queued: report.queued,
+        sent: report.sent,
+        failed: report.failed,
+        note: pushReady ? null : "VAPID keys are not set",
+      },
+      { onConflict: "id" },
+    )
+    // A missing table must not fail the run — the reminders already went
+    // out by this point, and losing them to a bookkeeping row would be a
+    // worse trade than having no heartbeat.
+    .then(({ error }) => error && console.warn("cron heartbeat:", error.message));
+
   return NextResponse.json({
     ok: true,
     at: now.toISOString(),
