@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   currentSubscriptionForKey,
@@ -76,7 +76,19 @@ export default function SettingsBoard({
 
   const known = endpoints.join("\n");
 
+  // The repair runs once for as long as this screen is open.
+  //
+  // It writes a subscription and then calls router.refresh(), which
+  // changes the endpoint list this effect reads — so listing that list as
+  // a dependency made the effect re-trigger itself. One repair became an
+  // unbounded loop of server actions and refreshes, and the app stopped
+  // answering taps. Nothing here needs to run twice: the values it repairs
+  // from are the browser's, and they do not change while the page sits.
+  const repaired = useRef(false);
+
   useEffect(() => {
+    if (repaired.current) return;
+    repaired.current = true;
     let cancelled = false;
 
     void (async () => {
@@ -123,7 +135,10 @@ export default function SettingsBoard({
     return () => {
       cancelled = true;
     };
-  }, [known, endpoints.length, router, vapidPublicKey]);
+    // Deliberately once per mount. See `repaired` above — the effect's own
+    // refresh changes `known`, so depending on it is what closed the loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function patch(update: PreferenceUpdate) {
     if (!prefs) return;

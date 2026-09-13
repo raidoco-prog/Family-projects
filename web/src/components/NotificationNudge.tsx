@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   currentSubscriptionForKey,
   isIos,
@@ -54,10 +54,15 @@ export default function NotificationNudge({
   const [error, setError] = useState<string | null>(null);
   const [hidden, setHidden] = useState(true);
 
+  // Once per mount. This runs on the home screen, the most opened screen
+  // in the app, and everything it does is a write.
+  const checked = useRef(false);
+
   useEffect(() => {
     // Nothing is worth showing before we know the answer, and the answer
     // is only knowable in the browser.
-    if (!vapidPublicKey || snoozedNow()) return;
+    if (!vapidPublicKey || snoozedNow() || checked.current) return;
+    checked.current = true;
     void pushState().then(async (s) => {
       setState(s);
       setHidden(!shouldAskAboutPush(s));
