@@ -79,11 +79,29 @@ export async function currentSubscription(): Promise<DeviceSubscription | null> 
   return read(await reg?.pushManager.getSubscription());
 }
 
-function sameKey(a: ArrayBuffer | null | undefined, b: Uint8Array): boolean {
+/**
+ * Whether a subscription was demonstrably made with a different key.
+ *
+ * "Cannot tell" counts as matching, and that asymmetry is the whole point.
+ * Not every browser fills in `applicationServerKey` on an existing
+ * subscription, and the previous version read a missing value as proof of
+ * a mismatch. The caller's response to a mismatch is to throw the
+ * subscription away and make a new one — so on any browser that withholds
+ * it, every single call replaced a perfectly good subscription with a
+ * fresh endpoint the server had never seen. On the settings screen, where
+ * an unknown endpoint triggers a save and a refresh, that closed into a
+ * loop that never settled: the page reloaded forever and the app stopped
+ * answering taps.
+ *
+ * Keeping a subscription that might be on an old key costs one failed
+ * push, which the delete rule already recognises and cleans up. Throwing
+ * away a good one costs everything above.
+ */
+function keyDiffers(a: ArrayBuffer | null | undefined, b: Uint8Array): boolean {
   if (!a) return false;
   const x = new Uint8Array(a);
-  if (x.length !== b.length) return false;
-  return x.every((v, i) => v === b[i]);
+  if (x.length !== b.length) return true;
+  return !x.every((v, i) => v === b[i]);
 }
 
 /**
@@ -117,7 +135,7 @@ export async function currentSubscriptionForKey(
   let replaced: string | null = null;
 
   if (existing) {
-    if (sameKey(existing.options?.applicationServerKey, wanted)) {
+    if (!keyDiffers(existing.options?.applicationServerKey, wanted)) {
       return { subscription: read(existing), replaced: null };
     }
     // Reported, not just discarded. The server still holds a row for this
