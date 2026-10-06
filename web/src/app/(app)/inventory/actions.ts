@@ -2,9 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/session";
-import type { ActionResult } from "../shopping/actions";
-
-const EXPIRED = "פג תוקף החיבור. התחברו מחדש.";
+import { EXPIRED, type ActionResult } from "@/lib/actions";
 
 /**
  * Sets an absolute quantity rather than applying a delta.

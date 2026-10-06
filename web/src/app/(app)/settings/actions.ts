@@ -6,13 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/session";
 import { syncCalendars } from "@/lib/gcal";
 import { configureWebPush, isDeadSubscription, vapidKeyVerdict } from "@/lib/notifications";
+import { EXPIRED, type ActionResult } from "@/lib/actions";
 import webpush from "web-push";
-
-export interface ActionResult {
-  error?: string;
-}
-
-const EXPIRED = "פג תוקף החיבור. התחברו מחדש.";
 
 export interface SaveDeviceResult {
   error?: string;
@@ -149,7 +144,6 @@ export async function savePreferences(patch: PreferenceUpdate): Promise<ActionRe
   return {};
 }
 
-
 export interface SyncResult {
   error?: string;
   imported?: number;
@@ -190,7 +184,6 @@ export async function syncCalendarNow(): Promise<SyncResult> {
     return { error: err instanceof Error ? err.message : "הסנכרון נכשל." };
   }
 }
-
 
 export interface TestPushResult {
   error?: string;

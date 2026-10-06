@@ -2,10 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/session";
-
-export interface ActionResult {
-  error?: string;
-}
+import { EXPIRED, type ActionResult } from "@/lib/actions";
 
 /**
  * The id is returned because an item added offline carries a temporary one,
@@ -15,8 +12,6 @@ export interface ActionResult {
 export interface AddResult extends ActionResult {
   id?: string;
 }
-
-const EXPIRED = "פג תוקף החיבור. התחברו מחדש.";
 
 export async function addShoppingItem(name: string): Promise<AddResult> {
   const trimmed = name.trim();

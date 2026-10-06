@@ -4,12 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/session";
 import { zonedTimeToInstant } from "@/lib/calendar";
 import type { EventKind } from "@/lib/types";
-
-export interface ActionResult {
-  error?: string;
-}
-
-const EXPIRED = "פג תוקף החיבור. התחברו מחדש.";
+import { EXPIRED, type ActionResult } from "@/lib/actions";
 
 export interface NewEventInput {
   title: string;

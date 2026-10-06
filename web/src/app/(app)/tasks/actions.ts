@@ -4,12 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/session";
 import { nextOccurrence, zonedTimeToInstant } from "@/lib/calendar";
 import type { TaskStatus } from "@/lib/types";
-
-export interface ActionResult {
-  error?: string;
-}
-
-const EXPIRED = "פג תוקף החיבור. התחברו מחדש.";
+import { EXPIRED, type ActionResult } from "@/lib/actions";
 
 export interface NewTaskInput {
   title: string;
@@ -152,22 +147,6 @@ export async function setTaskStatus(
   // The completion itself succeeded, so this is not reported as a failure of
   // the tick — but it must not be silent either.
   return spawnError ? { error: "המשימה סומנה, אך המופע הבא לא נוצר." } : {};
-}
-
-export async function reassignTask(
-  id: string,
-  assigneeId: string,
-): Promise<ActionResult> {
-  const session = await getSession();
-  if (!session) return { error: EXPIRED };
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("tasks")
-    .update({ assignee_id: assigneeId })
-    .eq("id", id);
-
-  return error ? { error: "העברת האחריות נכשלה. נסו שוב." } : {};
 }
 
 export async function deleteTask(id: string): Promise<ActionResult> {
