@@ -155,6 +155,20 @@ export default function VapidSetup({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Two independent gaps, and only one of them is usually open.
+  //
+  // The card used to appear only when the push keys were wrong, which
+  // meant that a CRON_SECRET missing beside a perfectly good key pair had
+  // nowhere to be generated — the same dead end the push keys already had
+  // once, in a different variable.
+  //
+  // When the pair is fine it is not offered for replacement. Replacing it
+  // invalidates every device's registration, and nothing on this screen
+  // would connect "I fixed the schedule" to "everyone stopped getting
+  // reminders".
+  const vapidNeeded = verdict !== "ok";
+  const cronNeeded = !seen.cronSecret;
+
   async function generate() {
     setBusy(true);
     setError(null);
@@ -198,12 +212,18 @@ export default function VapidSetup({
     <section className="flex flex-col gap-3 rounded-2xl border border-rule bg-surface p-4">
       <header className="flex flex-col gap-1">
         <h2 className="text-sm font-bold">
-          {verdict === "missing" ? "יצירת מפתחות ההתראות" : "המפתחות צריכים החלפה"}
+          {!vapidNeeded
+            ? "חסר הסוד של המשימה המתוזמנת"
+            : verdict === "missing"
+              ? "יצירת מפתחות ההתראות"
+              : "המפתחות צריכים החלפה"}
         </h2>
         <p className="text-xs leading-relaxed text-ink-soft">
-          {verdict === "missing"
-            ? "התראות דורשות זוג מפתחות. אפשר ליצור אותו כאן, בטלפון — הוא נוצר במכשיר שלך ולא נשלח לשום מקום."
-            : "המפתחות שמוגדרים כרגע אינם יכולים לחתום על התראה. צרו זוג חדש כאן — הוא נוצר במכשיר שלך ולא נשלח לשום מקום."}
+          {!vapidNeeded
+            ? "מפתחות ההתראות תקינים. מה שחסר הוא CRON_SECRET — הערך המשותף שמאפשר למשימה המתוזמנת לקרוא לאפליקציה. אפשר ליצור אותו כאן."
+            : verdict === "missing"
+              ? "התראות דורשות זוג מפתחות. אפשר ליצור אותו כאן, בטלפון — הוא נוצר במכשיר שלך ולא נשלח לשום מקום."
+              : "המפתחות שמוגדרים כרגע אינם יכולים לחתום על התראה. צרו זוג חדש כאן — הוא נוצר במכשיר שלך ולא נשלח לשום מקום."}
         </p>
       </header>
 
@@ -212,42 +232,53 @@ export default function VapidSetup({
       {pair ? (
         <>
           <div className="flex flex-col gap-3">
-            <Field name="NEXT_PUBLIC_VAPID_PUBLIC_KEY" value={pair.publicKey} />
-            <Field name="VAPID_PRIVATE_KEY" value={pair.privateKey} />
+            {vapidNeeded ? (
+              <>
+                <Field name="NEXT_PUBLIC_VAPID_PUBLIC_KEY" value={pair.publicKey} />
+                <Field name="VAPID_PRIVATE_KEY" value={pair.privateKey} />
+              </>
+            ) : null}
             {/* Only when there is not one already. A CRON_SECRET that works
                 is shared with a schedule inside the database, and replacing
                 it here means the cron starts being turned away at the door
                 — a second fault, introduced while fixing the first, and
                 nothing on this screen would connect the two. */}
-            {seen.cronSecret ? null : (
-              <Field name="CRON_SECRET" value={pair.cronSecret} />
-            )}
+            {cronNeeded ? <Field name="CRON_SECRET" value={pair.cronSecret} /> : null}
           </div>
 
           <ol className="flex list-inside list-decimal flex-col gap-1.5 text-xs leading-relaxed text-ink-soft">
             <li>
-              {seen.cronSecret
-                ? "החליפו את שני הערכים האלה במשתני הסביבה ב-Vercel."
-                : "הוסיפו את שלושתם למשתני הסביבה ב-Vercel."}
+              {!vapidNeeded
+                ? "הוסיפו את CRON_SECRET למשתני הסביבה ב-Vercel."
+                : cronNeeded
+                  ? "הוסיפו את שלושתם למשתני הסביבה ב-Vercel."
+                  : "החליפו את שני הערכים האלה במשתני הסביבה ב-Vercel."}
             </li>
             <li>
               <b>Redeploy</b> — בלעדיו הם לא קיימים מבחינת האפליקציה.
             </li>
-            {seen.cronSecret ? null : (
+            {cronNeeded ? (
               <li>
                 הריצו את <code dir="ltr">cron.sql</code> ב-Supabase עם אותו{" "}
                 <code dir="ltr">CRON_SECRET</code>.
               </li>
-            )}
+            ) : null}
             <li>
-              {seen.cronSecret
-                ? "פתחו את האפליקציה בטלפון — המכשיר יירשם מחדש מעצמו."
-                : "חזרו לכאן ולחצו «הפעלת התראות במכשיר הזה»."}
+              {!vapidNeeded
+                ? "חזרו לכאן — הכרטיס «מצב המשימה המתוזמנת» יראה שהיא רצה."
+                : cronNeeded
+                  ? "חזרו לכאן ולחצו «הפעלת התראות במכשיר הזה»."
+                  : "פתחו את האפליקציה בטלפון — המכשיר יירשם מחדש מעצמו."}
             </li>
           </ol>
 
           <p className="rounded-xl bg-danger-pastel p-2.5 text-[0.7rem] leading-relaxed text-danger-ink">
-            {seen.cronSecret ? "המפתח הפרטי הוא סוד" : "שני האחרונים הם סודות"}.
+            {!vapidNeeded
+              ? "זהו סוד"
+              : cronNeeded
+                ? "שני האחרונים הם סודות"
+                : "המפתח הפרטי הוא סוד"}
+            .
             העתיקו ישירות לשדה ב-Vercel — לא דרך צ׳אט, מסמך או מייל. אם הדף
             נסגר לפני שהעתקתם, פשוט צרו זוג חדש; אף אחד לא משתמש בהם עדיין.
           </p>

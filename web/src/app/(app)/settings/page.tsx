@@ -82,7 +82,9 @@ export default async function SettingsPage({
           hiding the generator behind "is the public key set" meant the
           screen asked for a new pair while withholding the only way to
           make one. A dead end is worse than no advice. */}
-      {keyVerdict === "ok" ? null : <VapidSetup seen={seen} verdict={keyVerdict} />}
+      {keyVerdict === "ok" && seen.cronSecret ? null : (
+        <VapidSetup seen={seen} verdict={keyVerdict} />
+      )}
 
       {/* Only worth offering once a push could actually be signed. Before
           that the answer is always the same and says nothing useful. */}
